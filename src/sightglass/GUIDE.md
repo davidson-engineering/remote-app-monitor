@@ -212,6 +212,11 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
   CSS can show which source went quiet, e.g.
   `section:has([data-stale]) { opacity: 0.3 }`. Bind it to a value the source
   sends every time; resending the same value counts as arriving.
+- **In a terminal:** `TerminalDisplay(screen=fn)` draws your own layout:
+  `fn(monitor, width, height)` returns the whole frame, reading
+  `monitor[id].text` and coloured with `Style(fg=214)` (xterm's 256
+  colours). `sightglass --demo launch --terminal` runs a full one, in the
+  package's `sightglass/launch/screen.py`.
 
 ## 6. Deploying
 

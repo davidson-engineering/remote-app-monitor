@@ -66,10 +66,7 @@ def test_build_reads_piped_stdin(monkeypatch):
         (["--zmq", "tcp://x:1", "--binary", "1=X"], "--serial device"),
         (["--pull"], "--pull goes with --zmq"),
         (["--serial", "auto", "--binary", "X=1"], "BYTE=NAME"),
-        (
-            ["--demo", "launch", "--terminal"],
-            "has its own page and data; drop --terminal",
-        ),
+        (["--demo", "launch", "--title", "X"], "its own page and data; drop --title"),
     ],
 )
 def test_bad_combinations_are_explained(argv, message, capsys):
@@ -79,7 +76,7 @@ def test_bad_combinations_are_explained(argv, message, capsys):
     assert message in capsys.readouterr().err
 
 
-def run_cli(*argv, stdin=subprocess.DEVNULL):
+def run_cli(*argv, stdin=subprocess.DEVNULL, cwd=None, env=None):
     """Start the command; return it and the dashboard URL it prints."""
     process = subprocess.Popen(
         [sys.executable, "-m", "sightglass", "--port", "0", *argv],
@@ -87,7 +84,9 @@ def run_cli(*argv, stdin=subprocess.DEVNULL):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        encoding="utf-8",
+        cwd=cwd,
+        env={**os.environ, "PYTHONUNBUFFERED": "1", **(env or {})},
     )
     line = process.stderr.readline()
     assert line.startswith("Dashboard: http://"), line
@@ -171,6 +170,22 @@ def test_demo_launch():
         # wait for them on the pipes they share.
         _, err = stop(process)
     assert "Ground systems (process" in err
+
+
+def test_demo_launch_in_the_terminal(tmp_path):
+    """--terminal draws the launch screen here, and still serves the page."""
+    size = {"COLUMNS": "120", "LINES": "36", "PYTHONIOENCODING": "utf-8"}
+    process, url = run_cli("--demo", "launch", "--terminal", cwd=tmp_path, env=size)
+    try:
+        with urllib.request.urlopen(url) as page:
+            assert "Aries II" in page.read().decode()
+        time.sleep(2)
+    finally:
+        out, err = stop(process)
+    assert out.startswith("\x1b[?1049h")  # the terminal's alternate screen
+    for shown in ["Launch control", "Flight dynamics", "Go/no-go poll", "Events"]:
+        assert shown in out
+    assert "Traceback" not in err
 
 
 def test_version():

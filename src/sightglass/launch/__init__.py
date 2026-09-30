@@ -1,6 +1,7 @@
 """Launch control: a rocket launch, live, fed by three separate programs.
 
-    sightglass --demo launch --open
+    sightglass --demo launch --open        # in a browser
+    sightglass --demo launch --terminal    # in this terminal (and a browser)
 
 The page, page.html, is plain HTML and CSS: every value on it is bound with
 a data-bind attribute, and its gauges, tanks and lamps are drawn by CSS from
@@ -12,14 +13,17 @@ those values. Three programs feed it, each in a different way:
   pad, sent with Client from another process
 - the weather mast (weather.py): plain HTTP posts, no library at all
 
-Stop a feeder and its part of the page says it has gone quiet. The launch
+screen.py draws the same launch in a terminal, through TerminalDisplay's
+screen hook. Stop a feeder and its part of the page says it has gone quiet. The launch
 repeats every five minutes or so; stop with Ctrl+C. To build something
 similar, copy this folder: it uses only sightglass's public API.
 """
 
 import multiprocessing
+import os
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from sightglass import (
@@ -31,6 +35,7 @@ from sightglass import (
     RangeBar,
     SimulatedSource,
     Sparkline,
+    TerminalDisplay,
     TextElement,
     TextFormat,
     WebDashboard,
@@ -103,10 +108,13 @@ def run(
     port: int = 8080,
     at: float = -COUNTDOWN,
     open_browser: bool = False,
+    terminal: bool = False,
 ) -> None:
-    """Serve the launch until Ctrl+C, starting ``at`` seconds from liftoff."""
+    """Serve the launch until Ctrl+C, starting ``at`` seconds from liftoff;
+    with ``terminal``, draw it in this terminal as well."""
     # When the first countdown started; every feeder works from this.
     started = time.time() - COUNTDOWN - at
+    # The web dashboard runs either way: the feeders post their values to it.
     web = WebDashboard(
         HERE / "page.html",
         static_dir=HERE / "static",
@@ -114,26 +122,48 @@ def run(
         port=port,
         open_browser=open_browser,
     )
-    monitor = build_monitor()
-    monitor.start(sources=[SimulatedSource(Vehicle(started), rate=10)], outputs=[web])
+    outputs: list = [web]
+    if terminal:
+        from .screen import screen
 
+        outputs.append(
+            TerminalDisplay(screen=lambda monitor, w, h: screen(monitor, w, h, web.url))
+        )
+    monitor = build_monitor()
+    monitor.start(sources=[SimulatedSource(Vehicle(started), rate=10)], outputs=outputs)
+
+    # Anything the feeders print would land on the terminal display: log it.
+    log = "sightglass.log" if terminal else None
     feeders = [
-        multiprocessing.Process(target=ground.run, args=(web.url, started)),
-        multiprocessing.Process(target=weather.run, args=(web.url,)),
+        multiprocessing.Process(
+            target=_feed, args=(ground.run, (web.url, started), log)
+        ),
+        multiprocessing.Process(target=_feed, args=(weather.run, (web.url,), log)),
     ]
     for feeder in feeders:
         feeder.daemon = True  # stopped with this program
         feeder.start()
-    print(
-        f"Ground systems (process {feeders[0].pid}) and the weather mast "
-        f"(process {feeders[1].pid}) report to it; stop either to see its part "
-        "of the page go quiet. Ctrl+C stops everything.",
-        file=sys.stderr,
-        flush=True,
-    )
+    if not terminal:
+        print(
+            f"Ground systems (process {feeders[0].pid}) and the weather mast "
+            f"(process {feeders[1].pid}) report to it; stop either to see its "
+            "part of the page go quiet. Ctrl+C stops everything.",
+            file=sys.stderr,
+            flush=True,
+        )
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         pass
     monitor.stop()
+
+
+def _feed(program: Callable[..., None], args: tuple, log: str | None) -> None:
+    """Run a feeder program (in its own process); with ``log``, whatever it
+    prints goes to that file."""
+    if log:
+        output = open(log, "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+        os.dup2(output.fileno(), 1)
+        os.dup2(output.fileno(), 2)
+    program(*args)

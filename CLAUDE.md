@@ -21,7 +21,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run sightglass --demo               # see the generic page with every element type
 uv run sightglass --demo launch --open  # the showcase (README screenshot); python -m sightglass.launch --at 60 starts mid-flight
 uv run python examples/robot_dashboard/dashboard.py --simulate   # the segment-display panel
-uv run --all-extras python docs/screenshot.py   # retake the README screenshot (~80 s)
+uv run --all-extras python docs/screenshot.py   # retake the README screenshots (~80 s)
 ```
 
 ## Layout
@@ -36,10 +36,10 @@ uv run --all-extras python docs/screenshot.py   # retake the README screenshot (
 | `src/sightglass/terminal.py` | full-screen terminal output |
 | `src/sightglass/client.py` | stdlib-only HTTP client for other processes |
 | `src/sightglass/cli.py`, `demo.py` | the `sightglass` command and `--demo` data |
-| `src/sightglass/launch/` | `--demo launch`, the showcase: `page.html` + `static/` (plain HTML/CSS), `vehicle.py` (flight model, in-process source), `ground.py` and `weather.py` (feeder processes), `mission.py` (shared clock); loaded only by that demo |
+| `src/sightglass/launch/` | `--demo launch`, the showcase: `page.html` + `static/` (plain HTML/CSS), `screen.py` (its terminal screen, `--terminal`), `vehicle.py` (flight model, in-process source), `ground.py` and `weather.py` (feeder processes), `mission.py` (shared clock); loaded only by that demo |
 | `src/sightglass/GUIDE.md` | the agent guide (imported above, printed by `--guide`) |
 | `examples/` | the gallery (`examples/README.md`): robot dashboard (segment displays, serial), numbered single-file examples, terminal, ZeroMQ publisher, Docker, `fake_device.py` (virtual serial port) |
-| `docs/` | README images; `screenshot.py` retakes the launch control one |
+| `docs/` | README images; `screenshot.py` retakes the launch demo's two (browser and terminal) |
 
 ## Invariants
 
@@ -83,7 +83,8 @@ uv run --all-extras python docs/screenshot.py   # retake the README screenshot (
 - Run the tests and ruff.
 - UI changes: look at the generic page (`sightglass --demo`), the launch demo
   (`sightglass --demo launch`) and the robot example in a browser, at desktop
-  and 390 px widths. Changes to the launch page: retake the README screenshot.
+  and 390 px widths; its terminal screen (`--terminal`) at 120 x 36 and
+  80 x 24. Changes to either: retake the README screenshots.
 - API or docs changes: run every snippet in `README.md` and `GUIDE.md` as
   written, in a clean virtualenv; they are user-facing contracts.
 - Releases: see `CONTRIBUTING.md` (tag `v<__version__>`, trusted publishing).

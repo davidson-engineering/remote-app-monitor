@@ -106,8 +106,18 @@ machine; see `compose.yaml` to share it, and set `TOKEN` to your own secret.
 
 ## 7. In the terminal
 
-A three-axis machine drawn in the terminal instead of a browser.
-[terminal_axes.py](terminal_axes.py)
+The launch showcase, drawn in the terminal by a screen function of its own
+([screen.py](../src/sightglass/launch/screen.py)); it still serves the page
+too. Two layouts: the full one from 101 x 34, a compact one down to 80 x 24.
+
+![The launch control demo in a terminal](../docs/launch-terminal.png)
+
+```bash
+uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --terminal
+```
+
+A three-axis machine drawn in the terminal instead of a browser, with the
+default layout (every element listed). [terminal_axes.py](terminal_axes.py)
 
 ```bash
 uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/terminal_axes.py --simulate

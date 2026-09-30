@@ -40,6 +40,7 @@ examples:
   sightglass --zmq tcp://*:5557 --pull  receive from PUSH sockets (none are lost)
   sightglass --demo                     simulated data, every kind of element
   sightglass --demo launch --open       the showcase: a rocket launch, live
+  sightglass --demo launch --terminal   ... drawn in the terminal too
 """
 
 
@@ -190,7 +191,6 @@ def launch(args: argparse.Namespace) -> None:
         "--title": args.title != "Monitor",
         "--token": args.token,
         "--stale-after": args.stale_after,
-        "--terminal": args.terminal,
     }
     if given := [flag for flag, value in ignored.items() if value]:
         raise ValueError(
@@ -198,7 +198,7 @@ def launch(args: argparse.Namespace) -> None:
         )
     from .launch import run
 
-    run(host=args.host, port=args.port, open_browser=args.open)
+    run(host=args.host, port=args.port, open_browser=args.open, terminal=args.terminal)
 
 
 def guide() -> str:
