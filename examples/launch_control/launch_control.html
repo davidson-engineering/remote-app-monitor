@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aries II launch control</title>
+  <link rel="stylesheet" href="/_app_monitor/panel.css">
+  <link rel="stylesheet" href="/static/launch_control.css">
+</head>
+<!--
+  Plain HTML: app_monitor.js (loaded at the end) keeps every data-bind
+  element up to date, and launch_control.css draws the gauges, tanks and
+  lamps from those values. data-mode="var" hands a number to CSS as --value;
+  data-stale-after marks a value that has stopped arriving, and each
+  [data-feed] area then says which program has gone quiet.
+-->
+<body>
+  <main class="console">
+    <header class="masthead">
+      <h1>Aries II <span>Launch control</span></h1>
+      <ul class="feeds">
+        <li><span class="led" data-bind="frame" data-mode="state" data-stale-after="1"></span>Vehicle <span class="frame" data-bind="frame"></span></li>
+        <li><span class="led" data-bind="clock.time" data-mode="state" data-stale-after="2"></span>Ground</li>
+        <li><span class="led" data-bind="weather.wind.text" data-mode="state" data-stale-after="3"></span>Weather</li>
+        <li class="link"><span class="led"></span><span class="link-state"></span></li>
+      </ul>
+    </header>
+
+    <section class="countdown" data-feed="ground systems" aria-label="Countdown">
+      <div class="clock" data-bind="clock.counting_up" data-mode="state">
+        <span class="sign" aria-hidden="true"></span>
+        <span class="lcd-field" data-ghost="88:88:88"><span data-bind="clock.time" data-stale-after="2"></span></span>
+      </div>
+      <p class="status" data-bind="status"></p>
+      <ul class="pad" aria-label="Pad">
+        <li><span class="led" data-bind="pad.loaded" data-mode="state"></span>Propellant loaded</li>
+        <li><span class="led" data-bind="pad.strongback" data-mode="state"></span>Strongback retracted</li>
+        <li><span class="led" data-bind="pad.deluge" data-mode="state"></span>Water deluge</li>
+      </ul>
+    </section>
+
+    <section class="flight" data-feed="the vehicle" aria-label="Flight events">
+      <ol class="timeline">
+        <li><span class="led" data-bind="events.liftoff" data-mode="state" data-stale-after="1"></span>Liftoff</li>
+        <li><span class="led" data-bind="events.maxq" data-mode="state"></span>Max-Q</li>
+        <li><span class="led" data-bind="events.meco" data-mode="state"></span>Main engine cutoff</li>
+        <li><span class="led" data-bind="events.separation" data-mode="state"></span>Stage separation</li>
+        <li><span class="led" data-bind="events.ses" data-mode="state"></span>Second engine start</li>
+        <li><span class="led" data-bind="events.fairing" data-mode="state"></span>Fairing separation</li>
+        <li><span class="led" data-bind="events.seco" data-mode="state"></span>Orbit</li>
+      </ol>
+    </section>
+
+    <section class="panel trajectory" data-feed="the vehicle">
+      <h2>Trajectory</h2>
+      <div class="readout">
+        <h3>Altitude</h3>
+        <p class="reading"><span data-bind="altitude.text" data-stale-after="1"></span> <small>km</small></p>
+        <div class="chart" data-bind="altitude.values" data-mode="sparkline"></div>
+      </div>
+      <div class="readout">
+        <h3>Velocity</h3>
+        <p class="reading"><span data-bind="velocity.text"></span> <small>m/s</small></p>
+        <div class="chart" data-bind="velocity.values" data-mode="sparkline"></div>
+      </div>
+      <dl class="facts">
+        <div><dt>Downrange</dt><dd><span data-bind="downrange"></span> km</dd></div>
+        <div><dt>Stage</dt><dd data-bind="stage"></dd></div>
+      </dl>
+    </section>
+
+    <section class="panel dynamics" data-feed="the vehicle">
+      <h2>Flight dynamics</h2>
+      <div class="dials">
+        <figure class="dial" data-bind="q.ratio" data-mode="var">
+          <div class="face"><div class="needle"></div></div>
+          <p class="reading"><span data-bind="q.text" data-stale-after="1"></span> <small>kPa</small></p>
+          <figcaption>Dynamic pressure</figcaption>
+        </figure>
+        <figure class="dial" data-bind="acceleration.ratio" data-mode="var">
+          <div class="face"><div class="needle"></div></div>
+          <p class="reading"><span data-bind="acceleration.text"></span> <small>g</small></p>
+          <figcaption>Acceleration</figcaption>
+        </figure>
+        <figure class="dial" data-bind="throttle.ratio" data-mode="var">
+          <div class="face"><div class="needle"></div></div>
+          <p class="reading"><span data-bind="throttle.text"></span> <small>%</small></p>
+          <figcaption>Throttle</figcaption>
+        </figure>
+      </div>
+      <figure class="attitude" data-bind="pitch" data-mode="var">
+        <div class="sky">
+          <svg class="rocket" viewBox="-10 -40 20 80" aria-hidden="true">
+            <path d="M0 -39C4 -33 5 -26 5 -18V24L9 31V37H-9V31L-5 24V-18C-5 -26 -4 -33 0 -39Z"/>
+          </svg>
+        </div>
+        <figcaption>Pitch <span class="reading"><span data-bind="pitch"></span>°</span></figcaption>
+      </figure>
+    </section>
+
+    <section class="panel propulsion" data-feed="the vehicle">
+      <h2>Propulsion</h2>
+      <div class="stages">
+        <div class="stage">
+          <h3>Stage 1</h3>
+          <div class="octaweb" role="img" aria-label="Nine first-stage engines">
+            <span class="led" data-bind="engines.e1" data-mode="state" data-stale-after="1"></span>
+            <span class="led" data-bind="engines.e2" data-mode="state" style="--i: 0"></span>
+            <span class="led" data-bind="engines.e3" data-mode="state" style="--i: 4"></span>
+            <span class="led" data-bind="engines.e4" data-mode="state" style="--i: 2"></span>
+            <span class="led" data-bind="engines.e5" data-mode="state" style="--i: 6"></span>
+            <span class="led" data-bind="engines.e6" data-mode="state" style="--i: 1"></span>
+            <span class="led" data-bind="engines.e7" data-mode="state" style="--i: 5"></span>
+            <span class="led" data-bind="engines.e8" data-mode="state" style="--i: 3"></span>
+            <span class="led" data-bind="engines.e9" data-mode="state" style="--i: 7"></span>
+          </div>
+          <div class="tanks">
+            <figure class="tank" data-bind="propellant.s1_lox.ratio" data-mode="var">
+              <div class="level"></div><figcaption>LOX</figcaption><span data-bind="propellant.s1_lox.text"></span>
+            </figure>
+            <figure class="tank" data-bind="propellant.s1_fuel.ratio" data-mode="var">
+              <div class="level"></div><figcaption>RP-1</figcaption><span data-bind="propellant.s1_fuel.text"></span>
+            </figure>
+          </div>
+        </div>
+        <div class="stage">
+          <h3>Stage 2</h3>
+          <div class="vacuum" role="img" aria-label="Second-stage engine">
+            <span class="led" data-bind="engines.mvac" data-mode="state"></span>
+          </div>
+          <div class="tanks">
+            <figure class="tank" data-bind="propellant.s2_lox.ratio" data-mode="var">
+              <div class="level"></div><figcaption>LOX</figcaption><span data-bind="propellant.s2_lox.text"></span>
+            </figure>
+            <figure class="tank" data-bind="propellant.s2_fuel.ratio" data-mode="var">
+              <div class="level"></div><figcaption>RP-1</figcaption><span data-bind="propellant.s2_fuel.text"></span>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel ground" data-feed="ground systems">
+      <h2>Go/no-go poll</h2>
+      <ul class="poll">
+        <li><span class="led" data-bind="poll.range" data-mode="state" data-stale-after="2"></span>Range</li>
+        <li><span class="led" data-bind="poll.weather" data-mode="state"></span>Weather</li>
+        <li><span class="led" data-bind="poll.propulsion" data-mode="state"></span>Propulsion</li>
+        <li><span class="led" data-bind="poll.guidance" data-mode="state"></span>Guidance</li>
+        <li><span class="led" data-bind="poll.recovery" data-mode="state"></span>Recovery</li>
+        <li><span class="led" data-bind="poll.launch_director" data-mode="state"></span>Launch director</li>
+      </ul>
+    </section>
+
+    <section class="panel weather" data-feed="the weather mast">
+      <h2>Weather at the pad</h2>
+      <figure class="compass" data-bind="weather.direction" data-mode="var">
+        <div class="arrow"></div>
+        <span class="north">N</span>
+      </figure>
+      <dl class="facts">
+        <div><dt>Wind</dt><dd><span data-bind="weather.wind.text" data-stale-after="3"></span> kt from <span data-bind="weather.direction"></span>°</dd></div>
+        <div><dt>Gusts</dt><dd><span data-bind="weather.gust"></span> kt</dd></div>
+        <div><dt>Temperature</dt><dd><span data-bind="weather.temperature"></span> °C</dd></div>
+      </dl>
+      <div class="chart" data-bind="weather.wind.values" data-mode="sparkline"></div>
+    </section>
+
+    <section class="panel events">
+      <h2>Events</h2>
+      <pre data-bind="log"></pre>
+    </section>
+  </main>
+  <script src="/_app_monitor/app_monitor.js"></script>
+</body>
+</html>

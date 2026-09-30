@@ -19,6 +19,27 @@ Every kind of display, with simulated data:
 uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --demo --open
 ```
 
+## The showcase: launch control
+
+A rocket launch, live, on a hand-built page: countdown clock, gauges, engine
+lamps, propellant tanks, a go/no-go poll, weather and an event log. The page
+is plain HTML and CSS, and three separate programs feed it, each its own way:
+the vehicle's telemetry is a source inside the dashboard program, ground
+systems report from another process with `Client`, and the weather mast posts
+plain HTTP with no library at all. Stop one of them and its part of the page
+says it has gone quiet. [launch_control/](launch_control/)
+
+![Launch control](../docs/launch-control.png)
+
+```bash
+git clone https://github.com/davidson-engineering/remote-app-monitor
+cd remote-app-monitor
+uv run --all-extras examples/launch_control/launch_control.py
+```
+
+The launch repeats every five minutes or so; `--at 60` starts a minute after
+liftoff.
+
 ## 1. Hello, dashboard
 
 A Python program reports what it's doing with `start()` and `set()`. Nothing
@@ -98,9 +119,10 @@ instead, and `--port /dev/ttyUSB0` a device sending binary frames.
 ## 8. A custom panel (and a serial device)
 
 A hand-built control panel with segment displays and LEDs, written in plain
-HTML with `data-bind` attributes: the screenshot in the main README. It reads
-a microcontroller over serial, or simulated data.
-[robot_dashboard/](robot_dashboard/)
+HTML with `data-bind` attributes. It reads a microcontroller over serial, or
+simulated data. [robot_dashboard/](robot_dashboard/)
+
+![Robot control panel](../docs/robot-dashboard.jpg)
 
 ```bash
 git clone https://github.com/davidson-engineering/remote-app-monitor

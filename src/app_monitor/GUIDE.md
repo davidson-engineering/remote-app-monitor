@@ -181,10 +181,11 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 ## 5. A custom page
 
 For a branded or hardware-style panel, write plain HTML and bind elements by
-id; no JavaScript is needed. The repository's
-`examples/robot_dashboard/` is a complete example (segment displays, LEDs).
-The repository's `examples/README.md` has a runnable example of each route
-in this guide (one command each), plus a Docker deployment.
+id; no JavaScript is needed. The repository's `examples/launch_control/` is a
+complete example (gauges, tanks, lamps, several feeds), as is
+`examples/robot_dashboard/` (segment displays, LEDs). The repository's
+`examples/README.md` has a runnable example of each route in this guide (one
+command each), plus a Docker deployment.
 
 ```html
 <link rel="stylesheet" href="/_app_monitor/panel.css">

@@ -19,7 +19,9 @@ uv run playwright install chromium      # once: the browser tests need it
 uv run pytest                           # ~210 tests, ~15 s (-m "not browser" skips Chromium)
 uv run ruff check . && uv run ruff format --check .
 uv run app-monitor --demo               # see the generic page with every element type
-uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-page example
+uv run --all-extras examples/launch_control/launch_control.py    # the showcase (README screenshot)
+uv run python examples/robot_dashboard/dashboard.py --simulate   # the segment-display panel
+uv run --all-extras python docs/screenshot.py   # retake the README screenshot (~80 s)
 ```
 
 ## Layout
@@ -35,7 +37,8 @@ uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-pa
 | `src/app_monitor/client.py` | stdlib-only HTTP client for other processes |
 | `src/app_monitor/cli.py`, `demo.py` | the `app-monitor` command and `--demo` data |
 | `src/app_monitor/GUIDE.md` | the agent guide (imported above, printed by `--guide`) |
-| `examples/` | robot dashboard (custom HTML page), terminal example, ZeroMQ publisher, `fake_device.py` (virtual serial port) |
+| `examples/` | the gallery (`examples/README.md`): `launch_control/` (the showcase: custom page, three feeders), robot dashboard (segment displays, serial), numbered single-file examples, terminal, ZeroMQ publisher, Docker, `fake_device.py` (virtual serial port) |
+| `docs/` | README images; `screenshot.py` retakes the launch control one |
 
 ## Invariants
 
@@ -77,8 +80,9 @@ uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-pa
 ## Before finishing a change
 
 - Run the tests and ruff.
-- UI changes: look at the generic page (`app-monitor --demo`) and the robot
-  example in a browser, at desktop and 390 px widths.
+- UI changes: look at the generic page (`app-monitor --demo`), the launch
+  control and the robot examples in a browser, at desktop and 390 px widths.
+  Changes to the launch control page: retake the README screenshot.
 - API or docs changes: run every snippet in `README.md` and `GUIDE.md` as
   written, in a clean virtualenv; they are user-facing contracts.
 - Releases: see `CONTRIBUTING.md` (tag `v<__version__>`, trusted publishing).
