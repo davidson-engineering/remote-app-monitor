@@ -85,6 +85,7 @@ def run_cli(*argv, stdin=subprocess.DEVNULL, cwd=None, env=None):
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
+        errors="replace",  # output cut short by stopping it can end mid-character
         cwd=cwd,
         env={**os.environ, "PYTHONUNBUFFERED": "1", **(env or {})},
     )
