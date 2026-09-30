@@ -1,0 +1,160 @@
+:root {
+  --label-column: 76px;
+  --motor-gap: 1.6rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: rgb(78 83 89);
+  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Both plates share one set of columns (labels | display | indicators), so the
+   displays line up however wide the fonts make them. */
+.panel {
+  display: grid;
+  grid-template-columns: var(--label-column) max-content max-content;
+  column-gap: 20px;
+  row-gap: 2px;
+  padding: 24px 0;
+}
+
+.plate {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  padding: 22px 28px 26px 12px;
+  background: rgb(0 0 0 / 0.2) url("brushed-aluminium.png") center / cover;
+  background-blend-mode: overlay;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    inset 0 -1px 0 rgb(0 0 0 / 0.35);
+}
+
+.plate:first-child {
+  border-radius: 6px 6px 0 0;
+}
+
+.plate:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
+/* Engraved labels. */
+.axis-labels,
+.metric-labels,
+.motor-labels {
+  color: #fff;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px #000;
+  -webkit-text-stroke: 0.04em #181818;
+  user-select: none;
+}
+
+.axis-labels,
+.metric-labels {
+  display: grid;
+  justify-items: end;
+  align-items: center;
+}
+
+.axis-labels {
+  font-size: 3rem;
+  padding: 8px 0;
+}
+
+.metric-labels {
+  font-size: 1.1rem;
+  /* Line up with the motor rows below the column headings. */
+  padding: calc(1.5rem + 10px + 8px) 0 8px;
+  grid-auto-rows: 1fr;
+}
+
+/* Same columns and side padding as .motors, so each heading centres on its motor. */
+.motor-labels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: var(--motor-gap);
+  justify-items: center;
+  padding: 0 12px;
+  margin-bottom: 10px;
+  font-size: 1.3rem;
+  line-height: 1.5rem;
+}
+
+.positions {
+  display: grid;
+  font-size: 6rem;
+}
+
+.motors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: var(--motor-gap);
+  font-size: 1.3rem;
+}
+
+.motor {
+  display: grid;
+  justify-self: center;
+}
+
+.indicators {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+  color: #f4f4f4;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.indicators li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The link indicator follows the dashboard's own connection, not the device. */
+.link {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(0 0 0 / 0.3);
+  box-shadow: 0 -1px 0 rgb(255 255 255 / 0.15);
+}
+
+html[data-connection="open"] .link .led {
+  opacity: 1;
+  background: var(--led-on);
+  box-shadow:
+    inset -2px -2px 4px rgb(0 0 0 / 0.35),
+    inset 2px 2px 4px rgb(255 255 255 / 0.6),
+    0 0 10px var(--led-on-glow);
+}
+
+html:not([data-connection="open"]) .link .led {
+  opacity: 1;
+}
+
+.link-state::after {
+  content: "Connecting";
+}
+
+html[data-connection="open"] .link-state::after {
+  content: "Link";
+}
+
+html[data-connection="closed"] .link-state::after {
+  content: "No link";
+}

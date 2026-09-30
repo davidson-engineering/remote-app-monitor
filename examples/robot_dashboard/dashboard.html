@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robotic Control Dashboard</title>
+  <link rel="stylesheet" href="/_app_monitor/panel.css">
+  <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+  <main class="panel">
+    <section class="plate">
+      <div class="axis-labels">
+        <div>X</div>
+        <div>Y</div>
+        <div>Z0</div>
+        <div>Z1</div>
+      </div>
+      <div class="lcd positions">
+        <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_x"></span></span>
+        <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_y"></span></span>
+        <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_z"></span></span>
+        <!-- The device doesn't report a second Z axis yet, so Z1 stays blank. -->
+        <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_z1"></span></span>
+      </div>
+      <ul class="indicators">
+        <li><span class="led" data-bind="machine_status.deadman_switch" data-mode="state"></span>Deadman switch</li>
+        <li><span class="led" data-bind="machine_status.motors_enabled" data-mode="state"></span>Motors enabled</li>
+        <li><span class="led led-red" data-bind="machine_status.emergency_stop" data-mode="state"></span>Emergency stop</li>
+        <li><span class="led led-amber" data-bind="machine_status.rapid_traverse" data-mode="state"></span>Rapid traverse</li>
+        <li><span class="led" data-bind="machine_status.fine_control" data-mode="state"></span>Fine control</li>
+        <li><span class="led" data-bind="machine_status.machine_mode" data-mode="state"></span>Machine mode</li>
+        <li class="link"><span class="led"></span><span class="link-state"></span></li>
+      </ul>
+    </section>
+
+    <section class="plate">
+      <div class="metric-labels">
+        <div>VEL</div>
+        <div>TRQ</div>
+        <div>STS</div>
+        <div>FLT</div>
+      </div>
+      <div>
+        <div class="motor-labels">
+          <div>MOTOR1</div>
+          <div>MOTOR2</div>
+          <div>MOTOR3</div>
+          <div>MOTOR4</div>
+        </div>
+        <!-- FLT: fault codes aren't sent by the device yet. -->
+        <div class="lcd motors">
+          <div class="motor">
+            <span class="lcd-field" data-ghost="~~~~~~~~"><span data-bind="motor1_speed"></span></span>
+            <span class="lcd-field" data-ghost="~~~~~~~.~"><span data-bind="motor1_torque"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor1_status"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor1_faults"></span></span>
+          </div>
+          <div class="motor">
+            <span class="lcd-field" data-ghost="~~~~~~~~"><span data-bind="motor2_speed"></span></span>
+            <span class="lcd-field" data-ghost="~~~~~~~.~"><span data-bind="motor2_torque"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor2_status"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor2_faults"></span></span>
+          </div>
+          <div class="motor">
+            <span class="lcd-field" data-ghost="~~~~~~~~"><span data-bind="motor3_speed"></span></span>
+            <span class="lcd-field" data-ghost="~~~~~~~.~"><span data-bind="motor3_torque"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor3_status"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor3_faults"></span></span>
+          </div>
+          <div class="motor">
+            <span class="lcd-field" data-ghost="~~~~~~~~"><span data-bind="motor4_speed"></span></span>
+            <span class="lcd-field" data-ghost="~~~~~~~.~"><span data-bind="motor4_torque"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor4_status"></span></span>
+            <span class="lcd-field lcd-field-left" data-ghost="~~~~~~~~"><span data-bind="motor4_faults"></span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="/_app_monitor/app_monitor.js"></script>
+</body>
+</html>
