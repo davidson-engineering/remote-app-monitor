@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Any language can feed a dashboard: here, plain shell and curl.
+#
+#   curl -fsSL https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/03_from_the_shell.sh | bash
+#
+# Starts `app-monitor` (installed, or fetched with uvx), then posts a few
+# readings about this machine every second. Stop with Ctrl+C.
+set -euo pipefail
+
+port=${PORT:-8080}
+url="http://127.0.0.1:$port"
+package="remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor"
+
+if command -v app-monitor >/dev/null; then
+  app_monitor=(app-monitor)
+else
+  app_monitor=(uvx --quiet --from "$package" app-monitor)
+fi
+
+echo "Starting the dashboard (the first run downloads it)..."
+"${app_monitor[@]}" --port "$port" --title "From the shell" --open </dev/null &
+dashboard=$!
+trap 'kill $dashboard 2>/dev/null' EXIT
+
+until curl -fs "$url/values" >/dev/null; do # wait until it's up
+  kill -0 "$dashboard" 2>/dev/null || exit 1  # it failed; its error is above
+  sleep 0.2
+done
+
+started=$(date +%s)
+while true; do
+  load=$(uptime | awk -F'load averages?: ' '{split($2, a, /[ ,]+/); print a[1]}')
+  disk=$(df -P / | awk 'NR == 2 {print $5}')
+  # Each line is key=value pairs; quote values with spaces.
+  curl -fs "$url/update" -d "uptime_s=$(($(date +%s) - started)) load=$load disk_used=$disk"
+  curl -fs "$url/update" -d "time=\"$(date '+%H:%M:%S')\" random=$RANDOM"
+  sleep 1
+done

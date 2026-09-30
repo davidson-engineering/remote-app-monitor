@@ -271,7 +271,8 @@ SPARK = "▁▂▃▄▅▆▇█"
 
 class Sparkline(Element):
     """A number with a small chart of its last ``points`` values, for spotting
-    trends (throughput, temperature, error rate)."""
+    trends (throughput, temperature, error rate). Values are multiplied by
+    ``scale`` (e.g. ``1 / 1024`` to show bytes as KB)."""
 
     def __init__(
         self,
@@ -280,6 +281,7 @@ class Sparkline(Element):
         label: str | None = None,
         points: int = 60,
         units: str = "",
+        scale: float = 1,
         format: TextFormat | None = None,
         label_width: int = 12,
         style: Style | None = None,
@@ -289,6 +291,7 @@ class Sparkline(Element):
         if points < 2:
             raise ValueError("points must be at least 2")
         self.units = units
+        self.scale = scale
         self.format = format
         self.label_width = label_width
         self.style = style
@@ -298,7 +301,7 @@ class Sparkline(Element):
         number = as_number(value)
         if number is None:
             raise ValueError("not a number")
-        self.history.append(float(number))
+        self.history.append(float(number) * self.scale)
 
     @property
     def text(self) -> str:

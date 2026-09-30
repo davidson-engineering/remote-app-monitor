@@ -1,3 +1,9 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "pyzmq>=26",
+# ]
+# ///
 """Publish sample values over ZeroMQ for terminal_axes.py --zmq to display.
 
     python examples/zmq_publisher.py

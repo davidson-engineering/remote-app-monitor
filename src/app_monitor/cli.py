@@ -96,6 +96,9 @@ def parser() -> argparse.ArgumentParser:
         help="interface to listen on; 0.0.0.0 allows other machines",
     )
     display.add_argument("--title", default="Monitor", help="page heading")
+    display.add_argument(
+        "--open", action="store_true", help="open the dashboard in a browser"
+    )
     display.add_argument("--token", help="require this token to POST /update")
     display.add_argument(
         "--stale-after",
@@ -160,6 +163,7 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
                 title=args.title,
                 token=args.token,
                 stale_after=args.stale_after,
+                open_browser=args.open,
             )
         )
     return monitor, sources, outputs

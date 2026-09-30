@@ -27,7 +27,9 @@ import errno
 import hmac
 import json
 import logging
+import os
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +63,8 @@ class WebDashboard:
             values, for sources expected to update continuously.
         fps: maximum pushes per second to each browser.
         announce: print the address when the server starts.
+        open_browser: open the page in a browser once the server is up (not
+            on Linux without a display, e.g. over SSH).
 
     The page loads the client from ``/_app_monitor/app_monitor.js``; the LCD
     and LED styles and fonts are at ``/_app_monitor/panel.css``.
@@ -78,6 +82,7 @@ class WebDashboard:
         stale_after: float | None = None,
         fps: float = 30,
         announce: bool = True,
+        open_browser: bool = False,
     ) -> None:
         if fps <= 0:
             raise ValueError("fps must be positive")
@@ -90,6 +95,7 @@ class WebDashboard:
         self.stale_after = stale_after
         self.fps = fps
         self.announce = announce
+        self.open_browser = open_browser
         self._runner: web.AppRunner | None = None
         self._sockets: set[web.WebSocketResponse] = set()
         self._sent: dict[int, int] = {}  # version each open page has been sent
@@ -142,6 +148,9 @@ class WebDashboard:
                 " (on all network interfaces)" if self.host == "0.0.0.0" else ""
             )
             print(f"Dashboard: {self.url}{everywhere}", file=sys.stderr, flush=True)
+        if self.open_browser and _has_display():
+            # webbrowser.open can block briefly while it launches the browser.
+            await asyncio.to_thread(webbrowser.open, self.url)
 
     async def run(self, monitor: Monitor) -> None:
         await self.start(monitor)
@@ -253,6 +262,14 @@ class WebDashboard:
                 await asyncio.sleep(1 / self.fps)
         except ConnectionError:
             pass
+
+
+def _has_display() -> bool:
+    """Whether opening a browser makes sense. On Linux without a graphical
+    session, webbrowser would fall back to a text browser in the terminal."""
+    if not sys.platform.startswith("linux"):
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
 def parse_posted_updates(body: bytes) -> list[dict[str, Any]]:

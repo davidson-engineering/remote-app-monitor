@@ -1,0 +1,31 @@
+# A dashboard service, and a second container feeding it over the network.
+#
+#   cd examples/docker && docker compose up        # then open http://localhost:8080
+#
+# Set TOKEN to choose the password for posting values (TOKEN=... docker compose up).
+
+services:
+  dashboard:
+    build: .
+    command: ["--title", "Docker demo", "--token", "${TOKEN:-change-me}", "--stale-after", "5"]
+    ports:
+      - "127.0.0.1:8080:8080"  # this machine only; use "8080:8080" to share it
+
+  feeder:
+    image: curlimages/curl:latest
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    environment:
+      TOKEN: "${TOKEN:-change-me}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sent=0
+        while true; do
+          sent=$$((sent + 1))
+          curl -fsS http://dashboard:8080/update \
+            -H "Authorization: Bearer $$TOKEN" \
+            -d "feeder.messages=$$sent feeder.time=$$(date +%H:%M:%S) feeder.temperature=$$((20 + RANDOM % 5)) feeder.host=$$(hostname)"
+          sleep 1
+        done

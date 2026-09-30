@@ -83,10 +83,19 @@
     .lamp { display: flex; align-items: center; gap: 6px; }
     .value .led { width: 12px; height: 12px; }
 
+    .table-scroll { overflow-x: auto; }  /* wide tables scroll inside, not the page */
     table { border-collapse: collapse; width: 100%; }
-    th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--line); }
-    th:first-child, td:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+    th, td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    th { white-space: nowrap; }
+    th.number, td.number { text-align: right; }  /* numeric columns line up on the right */
+    /* Long text (a process name, a path) ends in "..."; hover for all of it. */
+    td[data-column]:not(.number) { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    th:first-child, td:first-child { color: var(--muted); font-weight: 400; }
     pre { margin: 0; font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; }
+
+    @media (max-width: 520px) {
+      .row { grid-template-columns: 1fr; gap: 4px; }  /* label above value */
+    }
   </style>
 </head>
 <body>
@@ -130,10 +139,10 @@
           return el("div", { className: "lamps" }, ...item.axes.map((axis) =>
             el("span", {}, `${axis.toUpperCase()} `, bound("span", `${item.id}.${axis}`), item.units ? ` ${item.units}` : "")));
         case "Table":
-          return el("table", {},
-            el("tr", {}, el("th"), ...item.columns.map((column) => el("th", {}, column))),
+          return el("div", { className: "table-scroll" }, el("table", {},
+            el("tr", {}, el("th"), ...item.columns.map((column) => el("th", { dataset: { column } }, column))),
             ...item.rows.map((row) => el("tr", {}, el("td", {}, row),
-              ...item.columns.map((column) => bound("td", `${item.id}.${row}.${column}`)))));
+              ...item.columns.map((column) => bound("td", `${item.id}.${row}.${column}`, { dataset: { column } }))))));
         case "LogMonitor":
           return bound("pre", item.id);
         case "Sparkline":
@@ -144,6 +153,26 @@
           return el("span", {}, bound("span", item.id), item.units ? ` ${item.units}` : "");
       }
     }
+
+    // Right-align a table column when everything in it is a number.
+    const NUMBER = /^[-+]?[\d.,]+\s*%?$/;
+    document.addEventListener("monitor:update", () => {
+      for (const table of document.querySelectorAll("#dashboard table")) {
+        const columns = new Map();
+        for (const cell of table.querySelectorAll("[data-column]")) {
+          if (!columns.has(cell.dataset.column)) columns.set(cell.dataset.column, []);
+          columns.get(cell.dataset.column).push(cell);
+        }
+        for (const cells of columns.values()) {
+          const values = cells.filter((c) => c.tagName === "TD" && c.textContent.trim());
+          const numeric = values.length > 0 && values.every((c) => NUMBER.test(c.textContent.trim()));
+          for (const cell of cells) {
+            cell.classList.toggle("number", numeric);
+            if (cell.tagName === "TD") cell.title = cell.textContent;
+          }
+        }
+      }
+    });
 
     const row = (item) => el("div", { className: "row" }, el("div", { className: "label" }, item.label), el("div", { className: "value" }, valueFor(item)));
 
