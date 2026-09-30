@@ -97,6 +97,7 @@ async def test_web_sends_snapshot_then_only_changes(client):
     assert snapshot["type"] == "snapshot"
     assert (snapshot["title"], snapshot["staleAfter"]) == ("Line 3", 2.5)
     assert snapshot["values"]["machine"] == {"estop": False, "enabled": False}
+    assert snapshot["ages"]["machine"] is None  # never updated
     assert [item.get("id", item.get("group")) for item in snapshot["layout"]] == [
         "speed",
         "X",

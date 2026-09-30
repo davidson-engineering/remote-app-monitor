@@ -94,11 +94,12 @@ def test_examples_compile_and_import_real_names(path):
 
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda p: p.name)
 def test_self_contained_examples_declare_their_dependencies(path):
-    """Examples that run on their own must carry PEP 723 metadata, so
-    `uv run <url>` works; the rest need files from the repository."""
-    needs_repo = {"fake_device.py", "dashboard.py"}
+    """Single-file examples must carry PEP 723 metadata, so `uv run <url>`
+    works; examples in a folder of their own, and fake_device.py, need files
+    from the repository and run from a clone."""
+    needs_repo = path.parent != ROOT / "examples" or path.name == "fake_device.py"
     has_metadata = path.read_text("utf-8").startswith("# /// script")
-    assert has_metadata != (path.name in needs_repo)
+    assert has_metadata != needs_repo
 
 
 def test_example_run_commands_point_at_files_that_exist():

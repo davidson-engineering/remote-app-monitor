@@ -1,6 +1,10 @@
+/* Sizes are multiples of --u: 1rem, or less on narrow screens (below), so the
+   whole panel scales down to fit instead of running off the side. The 8px and
+   12px paddings match the displays' own, from panel.css. */
 :root {
-  --label-column: 76px;
-  --motor-gap: 1.6rem;
+  --u: 1rem;
+  --label-column: calc(4.75 * var(--u));
+  --motor-gap: calc(1.6 * var(--u));
 }
 
 * {
@@ -21,7 +25,7 @@ body {
 .panel {
   display: grid;
   grid-template-columns: var(--label-column) max-content max-content;
-  column-gap: 20px;
+  column-gap: calc(1.25 * var(--u));
   row-gap: 2px;
   padding: 24px 0;
 }
@@ -30,7 +34,8 @@ body {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: subgrid;
-  padding: 22px 28px 26px 12px;
+  padding: calc(1.375 * var(--u)) calc(1.75 * var(--u)) calc(1.625 * var(--u))
+    calc(0.75 * var(--u));
   background: rgb(0 0 0 / 0.2) url("brushed-aluminium.png") center / cover;
   background-blend-mode: overlay;
   box-shadow:
@@ -65,14 +70,15 @@ body {
 }
 
 .axis-labels {
-  font-size: 3rem;
+  font-size: calc(3 * var(--u));
   padding: 8px 0;
 }
 
+/* Labels stop shrinking at 9px, so a phone can still read them. */
 .metric-labels {
-  font-size: 1.1rem;
+  font-size: max(calc(1.1 * var(--u)), 9px);
   /* Line up with the motor rows below the column headings. */
-  padding: calc(1.5rem + 10px + 8px) 0 8px;
+  padding: calc(2.125 * var(--u) + 8px) 0 8px;
   grid-auto-rows: 1fr;
 }
 
@@ -83,21 +89,21 @@ body {
   column-gap: var(--motor-gap);
   justify-items: center;
   padding: 0 12px;
-  margin-bottom: 10px;
-  font-size: 1.3rem;
-  line-height: 1.5rem;
+  margin-bottom: calc(0.625 * var(--u));
+  font-size: max(calc(1.3 * var(--u)), 9px);
+  line-height: calc(1.5 * var(--u));
 }
 
 .positions {
   display: grid;
-  font-size: 6rem;
+  font-size: calc(6 * var(--u));
 }
 
 .motors {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   column-gap: var(--motor-gap);
-  font-size: 1.3rem;
+  font-size: calc(1.3 * var(--u));
 }
 
 .motor {
@@ -168,4 +174,32 @@ html[data-connection="open"][data-stale] .link .led {
 
 html[data-connection="open"][data-stale] .link-state::after {
   content: "No data";
+}
+
+/* Narrow screens: the lamps go below the displays, and the panel shrinks. */
+@media (max-width: 1080px) {
+  :root {
+    --u: min(1rem, (100vw - 56px) / 51);
+  }
+
+  .panel {
+    grid-template-columns: var(--label-column) max-content;
+  }
+
+  .plate {
+    padding-right: calc(0.75 * var(--u));
+  }
+
+  .indicators {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    padding-top: 20px;
+  }
+
+  .link {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    box-shadow: none;
+  }
 }

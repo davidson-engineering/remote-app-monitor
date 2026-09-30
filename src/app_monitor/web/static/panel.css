@@ -38,6 +38,7 @@
   --lcd-lit: hsl(179 96% 82%);
   --lcd-unlit: hsl(208 82% 51% / 0.1);
   --lcd-glow: 0 0 6px hsl(200 85% 53% / 0.5), 0 0 12px hsl(207 88% 53% / 0.3);
+  --lcd-edge: hsl(190 80% 50%);
   --led-off: #3b3f44;
   --led-on: #00d207;
   --led-on-glow: #69fa6e;
@@ -86,7 +87,7 @@
 .lcd-field > * {
   color: var(--lcd-lit);
   text-shadow: var(--lcd-glow);
-  -webkit-text-stroke: hsl(190 80% 50%) 0.011em;
+  -webkit-text-stroke: var(--lcd-edge) 0.011em;
   transition: opacity 150ms;
 }
 

@@ -1,0 +1,781 @@
+/*
+ * Aries II launch control. One display divided by hairlines into instruments.
+ * Colour means state, as on an aircraft's displays: cyan is live telemetry,
+ * green is running or go, amber is no data; the countdown clock is the one
+ * thing that shouts.
+ *
+ * Instruments are drawn from --value, which data-mode="var" sets to the
+ * bound number (a ratio from 0 to 1 for the gauges and tanks).
+ */
+
+@font-face {
+  font-family: "B612";
+  src: url("fonts/B612-Regular.woff2") format("woff2");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "B612";
+  src: url("fonts/B612-Bold.woff2") format("woff2");
+  font-weight: 700;
+}
+
+/* Registered, so needles and levels glide between the telemetry's updates. */
+@property --value {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+:root {
+  color-scheme: dark;
+  --display: #05080c;
+  --rule: #1a222c;
+  --track: #222d39;
+  --legend: #7f8c9d;
+  --text: #dde4ec;
+  --telemetry: #5fd6ef;
+  --go: #3ddc7c;
+  --caution: #f2c14b;
+  --clock: #ff9a2e;
+  --led-off: #26313d;
+  --led-on: var(--go);
+  --led-on-glow: rgb(61 220 124 / 0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--rule);
+  color: var(--text);
+  /* B612 was drawn for cockpit displays; its digits are all one width, so
+     changing numbers don't jitter. */
+  font: 14px/1.4 "B612", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+figure,
+pre {
+  margin: 0;
+}
+
+/* -- layout: hairlines are the 1px gaps showing the page behind ---------- */
+
+.console {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1px;
+  max-width: 1600px;
+  min-height: 100vh;
+  margin: 0 auto;
+}
+
+.console > * {
+  position: relative;
+  padding: 20px 24px;
+  background: var(--display);
+}
+
+.masthead {
+  grid-column: 1 / -1;
+}
+
+.countdown {
+  grid-column: 1 / 9;
+}
+
+.flight {
+  grid-column: 9 / -1;
+}
+
+.trajectory {
+  grid-column: 1 / 5;
+}
+
+.dynamics {
+  grid-column: 5 / 10;
+}
+
+.propulsion {
+  grid-column: 10 / -1;
+}
+
+.ground,
+.weather,
+.events {
+  grid-column: span 4;
+}
+
+h2 {
+  margin-bottom: 16px;
+  color: var(--legend);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+h3,
+dt,
+figcaption {
+  color: var(--legend);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.reading {
+  color: var(--telemetry);
+  white-space: nowrap;
+}
+
+.reading small {
+  color: var(--legend);
+  font-size: 0.5em;
+}
+
+.led {
+  width: 10px;
+  height: 10px;
+  background: var(--led-off);
+  box-shadow: none;
+}
+
+.led[data-state="on"] {
+  background: var(--led-on);
+  box-shadow: 0 0 8px var(--led-on-glow);
+}
+
+/* -- masthead ------------------------------------------------------------- */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-block: 12px;
+}
+
+h1 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+h1 span {
+  margin-left: 8px;
+  color: var(--legend);
+  font-weight: 400;
+}
+
+.feeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--legend);
+  font-size: 13px;
+}
+
+.feeds li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feeds .led[data-stale],
+html[data-connection="open"][data-stale] .link .led {
+  --led-on: var(--caution);
+  --led-on-glow: rgb(242 193 75 / 0.6);
+}
+
+.frame {
+  color: var(--telemetry);
+}
+
+.link {
+  padding-left: 20px;
+  border-left: 1px solid var(--rule);
+}
+
+html[data-connection="open"] .link .led {
+  opacity: 1;
+  background: var(--led-on);
+  box-shadow: 0 0 8px var(--led-on-glow);
+}
+
+html:not([data-connection="open"]) .link .led {
+  opacity: 1;
+}
+
+.link-state::after {
+  content: "Connecting";
+}
+
+html[data-connection="open"] .link-state::after {
+  content: "Live";
+}
+
+html[data-connection="closed"] .link-state::after {
+  content: "Reconnecting";
+}
+
+/* -- countdown ------------------------------------------------------------ */
+
+.countdown {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding-block: 28px;
+}
+
+.clock {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.12em;
+  font-family: "DSEG7 Modern Mini", monospace;
+  font-size: clamp(52px, 8.4vw, 132px);
+  line-height: 1;
+  --lcd-lit: var(--clock);
+  --lcd-unlit: rgb(255 154 46 / 0.06);
+  --lcd-glow: 0 0 0.1em rgb(255 132 0 / 0.5), 0 0 0.3em rgb(255 110 0 / 0.18);
+  --lcd-edge: #ffb04d;
+}
+
+.sign {
+  padding-top: 0.08em;
+  font-family: "B612", sans-serif;
+  font-size: 0.26em;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--clock);
+}
+
+.sign::before {
+  content: "T\2212";
+}
+
+/* Unlit segments, without the glow of the lit ones. */
+.clock .lcd-field::before {
+  text-shadow: none;
+}
+
+.clock[data-state="on"] .sign::before {
+  content: "T+";
+}
+
+.status {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.timeline {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--legend);
+}
+
+/* The rail the event lamps sit on. */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 4.5px;
+  width: 1px;
+  background: var(--track);
+}
+
+.timeline li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.timeline li:has(.led[data-state="on"]) {
+  color: var(--text);
+}
+
+/* -- trajectory ----------------------------------------------------------- */
+
+.trajectory {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 24px;
+}
+
+.trajectory h2,
+.trajectory .facts {
+  grid-column: 1 / -1;
+}
+
+/* Charts take whatever height the row has. */
+.readout {
+  display: flex;
+  flex-direction: column;
+}
+
+.readout .reading {
+  margin: 2px 0 12px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.chart {
+  height: 56px;
+  color: var(--telemetry);
+}
+
+.readout .chart {
+  flex: 1;
+  min-height: 56px;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin-top: 18px;
+}
+
+.facts dd {
+  color: var(--telemetry);
+}
+
+/* -- flight dynamics: gauges drawn from --value (0 to 1) ------------------ */
+
+/* The attitude sits beside the dials, or below them when there's no room. */
+.dynamics {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 20px;
+}
+
+.dynamics h2 {
+  flex-basis: 100%;
+  margin-bottom: -4px;
+}
+
+.dials {
+  flex: 1 1 330px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dial,
+.attitude,
+.tank,
+.compass {
+  transition: --value 120ms linear;
+}
+
+.dial {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+}
+
+.face {
+  position: relative;
+  width: min(100%, 124px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* The hub. */
+  background: radial-gradient(circle, var(--text) 3px, transparent 3.5px);
+}
+
+/* The arc, filled as far as the value, over a 240° sweep. */
+.face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -120deg,
+    var(--telemetry) calc(var(--value) * 240deg),
+    var(--track) 0 240deg,
+    transparent 0
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+}
+
+/* Ten divisions. */
+.face::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from -120.5deg,
+    var(--legend) 0 1deg,
+    transparent 1deg 24deg
+  );
+  mask:
+    radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)),
+    conic-gradient(from -121deg, #000 242deg, transparent 0);
+  mask-composite: intersect;
+}
+
+.needle {
+  position: absolute;
+  left: calc(50% - 1px);
+  bottom: 50%;
+  width: 2px;
+  height: 38%;
+  border-radius: 1px;
+  background: var(--text);
+  transform-origin: 50% 100%;
+  rotate: calc(-120deg + var(--value) * 240deg);
+}
+
+/* The reading sits in the gap at the bottom of the dial. */
+.dial .reading {
+  margin-top: -30px;
+  font-size: 20px;
+}
+
+.dial figcaption {
+  margin-top: 6px;
+  text-align: center;
+}
+
+.attitude {
+  flex: 1 0 124px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+}
+
+.sky {
+  position: relative;
+  width: 124px;
+  aspect-ratio: 1;
+  border: 1px solid var(--track);
+  border-radius: 50%;
+  /* The horizon. */
+  background: linear-gradient(
+    transparent calc(50% - 0.5px),
+    var(--legend) 0 calc(50% + 0.5px),
+    transparent 0
+  );
+}
+
+.rocket {
+  position: absolute;
+  top: 12%;
+  left: 12%;
+  width: 76%;
+  height: 76%;
+  fill: var(--text);
+  /* --value is the pitch: 90° is straight up, 0° is level (flying east). */
+  rotate: calc((90 - var(--value)) * 1deg);
+}
+
+.attitude .reading {
+  font-size: 14px;
+}
+
+/* -- propulsion ----------------------------------------------------------- */
+
+.stages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stage {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.octaweb,
+.vacuum {
+  position: relative;
+  width: 76px;
+  height: 76px;
+}
+
+.octaweb .led,
+.vacuum .led {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+}
+
+/* Eight engines in a ring around the centre one. */
+.octaweb .led[style] {
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-27px);
+}
+
+.vacuum .led {
+  width: 30px;
+  height: 30px;
+  margin: -15px;
+}
+
+.tanks {
+  display: flex;
+  gap: 14px;
+}
+
+.tank {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.level {
+  width: 22px;
+  height: 80px;
+  border: 1px solid var(--track);
+  border-radius: 3px;
+  /* Propellant up to the level, with a bright surface. */
+  background: linear-gradient(
+    to top,
+    rgb(95 214 239 / 0.4) calc(var(--value) * 100% - 2px),
+    var(--telemetry) 0 calc(var(--value) * 100%),
+    transparent 0
+  );
+}
+
+.tank > span {
+  font-size: 12px;
+  color: var(--telemetry);
+}
+
+/* -- ground ---------------------------------------------------------------- */
+
+.poll {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.poll li,
+.pad li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--legend);
+}
+
+.pad li:has(.led[data-state="on"]) {
+  color: var(--text);
+}
+
+.poll li::after {
+  content: "Standing by";
+  margin-left: auto;
+  color: var(--legend);
+}
+
+.poll li:has(.led[data-state="on"])::after {
+  content: "Go";
+  color: var(--go);
+}
+
+/* -- weather -------------------------------------------------------------- */
+
+.weather {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 24px;
+}
+
+.weather h2,
+.weather .chart {
+  grid-column: 1 / -1;
+}
+
+.weather .facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.weather .chart {
+  align-self: end;
+  margin-top: 16px;
+}
+
+.compass {
+  position: relative;
+  width: 96px;
+  aspect-ratio: 1;
+  border: 1px solid var(--track);
+  border-radius: 50%;
+}
+
+/* A tick every 30°. */
+.compass::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -0.5deg, var(--legend) 0 1deg, transparent 1deg 30deg);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+
+.arrow {
+  position: absolute;
+  top: 16%;
+  bottom: 16%;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: var(--telemetry);
+  /* --value is where the wind comes from; the arrow points where it goes. */
+  rotate: calc(var(--value) * 1deg + 180deg);
+}
+
+.arrow::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -5px;
+  border: 6px solid transparent;
+  border-top: 0;
+  border-bottom: 10px solid var(--telemetry);
+}
+
+.north {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+  color: var(--legend);
+  font-size: 10px;
+}
+
+/* -- events --------------------------------------------------------------- */
+
+.events pre {
+  font: 13px/1.7 "B612", system-ui, sans-serif;
+  color: var(--legend);
+  white-space: pre-wrap;
+}
+
+/* -- no data --------------------------------------------------------------- */
+
+/* A feed has gone quiet: dim what it drives and say so. */
+[data-feed]:has([data-stale]) > * {
+  opacity: 0.25;
+}
+
+[data-feed]:has([data-stale])::after {
+  content: "No data from " attr(data-feed);
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  color: var(--caution);
+  font-size: 13px;
+}
+
+/* The page itself has lost the dashboard. */
+html:not([data-connection="open"]) .console > :not(.masthead) > * {
+  opacity: 0.35;
+}
+
+/* -- narrow screens -------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .countdown,
+  .flight {
+    grid-column: 1 / -1;
+  }
+
+  .trajectory,
+  .dynamics,
+  .propulsion,
+  .ground,
+  .weather,
+  .events {
+    grid-column: span 6;
+  }
+
+  .timeline {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+
+  .timeline::before {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .trajectory,
+  .dynamics,
+  .propulsion,
+  .ground,
+  .weather,
+  .events {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .console > * {
+    padding: 16px;
+  }
+
+  .link {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .trajectory {
+    grid-template-columns: 1fr;
+    row-gap: 20px;
+  }
+
+  .readout .reading {
+    font-size: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dial,
+  .attitude,
+  .tank,
+  .compass {
+    transition: none;
+  }
+}

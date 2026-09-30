@@ -5,6 +5,17 @@
 //                                                                   (text "off", "0", "false" count as off)
 //   <div data-bind="X.velocity.ratio" data-mode="width"></div>      style.width = value * 100%
 //   <div data-bind="rate.values" data-mode="sparkline"></div>       line chart of a number list
+//   <div data-bind="q.ratio" data-mode="var"></div>                 CSS variable --value: the number
+//                                                                   (unset if not a number; true = 1)
+//
+// "var" lets CSS draw anything from a number: a needle rotated by
+// calc(var(--value) * 270deg), a tank filled to calc(var(--value) * 100%).
+//
+// Any bound element may also have data-stale-after="<seconds>": it gets
+// data-stale="true" while its value hasn't arrived for that long (or ever),
+// e.g. to show that one of several feeds has gone quiet. A value sent again
+// unchanged still counts as arriving. While the page is disconnected it
+// can't tell, so the attribute stays as it was until it reconnects.
 //
 // Object values are flattened, so {"machine": {"estop": true}} binds as
 // "machine.estop". State is exposed on <html>:
@@ -23,6 +34,8 @@
 
   const root = document.documentElement;
   let bindings = new Map();
+  let watched = []; // bound elements with data-stale-after
+  const arrived = new Map(); // bound key -> Date.now() when its value last arrived
   let lastData = null;
   let staleAfter = null;
 
@@ -33,6 +46,7 @@
       if (!bindings.has(key)) bindings.set(key, []);
       bindings.get(key).push(el);
     }
+    watched = [...document.querySelectorAll("[data-bind][data-stale-after]")];
   }
 
   function flatten(key, value, out) {
@@ -71,13 +85,21 @@
       return;
     }
     const low = Math.min(...numbers);
-    const span = Math.max(...numbers) - low || 1;
+    const span = Math.max(...numbers) - low;
     const step = 100 / (numbers.length - 1);
+    const y = (v) => (span ? 19 - ((v - low) / span) * 18 : 10); // steady: mid-height
     line.setAttribute(
       "points",
-      numbers.map((v, i) => `${(i * step).toFixed(2)},${(19 - ((v - low) / span) * 18).toFixed(2)}`).join(" "),
+      numbers.map((v, i) => `${(i * step).toFixed(2)},${y(v).toFixed(2)}`).join(" "),
     );
   }
+  // Numbers for CSS; text from devices ("+45.5") counts, "" and "n/a" don't.
+  function asNumber(value) {
+    if (typeof value === "boolean") return Number(value);
+    if (typeof value === "string" && value.trim() !== "") value = Number(value);
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
   // Text sources (curl, serial, pipes) send "off" / "0": those are off too.
   const OFF = new Set(["", "0", "false", "off", "no"]);
   const isOn = (value) =>
@@ -96,27 +118,55 @@
       case "sparkline":
         drawSparkline(el, value);
         break;
+      case "var": {
+        const number = asNumber(value);
+        if (number === null) el.style.removeProperty("--value");
+        else el.style.setProperty("--value", number);
+        break;
+      }
       default:
         el.textContent = value ?? "";
     }
   }
 
-  function apply(values) {
+  // ages: seconds since each element was updated (null: never), sent with
+  // snapshots so a page that has just connected knows what's old; values in
+  // updates have just arrived.
+  function apply(values, ages = {}) {
+    const now = Date.now();
     const flat = {};
-    for (const [id, value] of Object.entries(values)) flatten(id, value, flat);
+    for (const [id, value] of Object.entries(values)) {
+      const age = ages[id] === undefined ? 0 : ages[id];
+      for (const [key, inner] of Object.entries(flatten(id, value, {}))) {
+        flat[key] = inner;
+        if (age === null) arrived.delete(key);
+        else arrived.set(key, now - age * 1000);
+      }
+    }
     for (const [key, value] of Object.entries(flat)) {
       for (const el of bindings.get(key) ?? []) show(el, value);
     }
-    lastData = Date.now();
+    lastData = now;
     tick();
     document.dispatchEvent(new CustomEvent("monitor:update", { detail: flat }));
   }
 
   function tick() {
-    const age = lastData === null ? null : (Date.now() - lastData) / 1000;
+    const now = Date.now();
+    const age = lastData === null ? null : (now - lastData) / 1000;
     const stale = staleAfter !== null && age !== null && age > staleAfter;
     if (stale) root.dataset.stale = "true";
     else delete root.dataset.stale;
+    // Cut off from the dashboard, the page can't tell whether values still
+    // arrive there: keep what it last knew until it reconnects.
+    for (const el of root.dataset.connection === "open" ? watched : []) {
+      const since = arrived.get(el.dataset.bind);
+      if (since === undefined || now - since > Number(el.dataset.staleAfter) * 1000) {
+        el.dataset.stale = "true";
+      } else {
+        delete el.dataset.stale;
+      }
+    }
     document.dispatchEvent(new CustomEvent("monitor:tick", { detail: { age } }));
   }
 
@@ -134,7 +184,7 @@
         document.dispatchEvent(new CustomEvent("monitor:snapshot", { detail: message }));
         collectBindings();
       }
-      apply(message.values);
+      apply(message.values, message.ages);
     };
     socket.onclose = () => {
       root.dataset.connection = "closed";

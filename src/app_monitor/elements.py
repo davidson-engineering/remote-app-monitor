@@ -15,6 +15,7 @@ import copy
 from collections import deque
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from time import monotonic
 from typing import Any, Self
 
 from .formatting import (
@@ -272,7 +273,13 @@ SPARK = "▁▂▃▄▅▆▇█"
 class Sparkline(Element):
     """A number with a small chart of its last ``points`` values, for spotting
     trends (throughput, temperature, error rate). Values are multiplied by
-    ``scale`` (e.g. ``1 / 1024`` to show bytes as KB)."""
+    ``scale`` (e.g. ``1 / 1024`` to show bytes as KB).
+
+    With ``interval``, the chart keeps one point per ``interval`` seconds:
+    updates within an interval replace its point, so a value sent many times a
+    second can chart a longer period (``points * interval`` seconds). The
+    number shown is always the latest value.
+    """
 
     def __init__(
         self,
@@ -280,6 +287,7 @@ class Sparkline(Element):
         *,
         label: str | None = None,
         points: int = 60,
+        interval: float | None = None,
         units: str = "",
         scale: float = 1,
         format: TextFormat | None = None,
@@ -290,18 +298,29 @@ class Sparkline(Element):
         super().__init__(id, label=label, border=border)
         if points < 2:
             raise ValueError("points must be at least 2")
+        if interval is not None and interval <= 0:
+            raise ValueError("interval must be positive")
+        self.interval = interval
         self.units = units
         self.scale = scale
         self.format = format
         self.label_width = label_width
         self.style = style
         self.history: deque[float] = deque(maxlen=points)
+        self._point_started = 0.0
 
     def update(self, value: Any) -> None:
         number = as_number(value)
         if number is None:
             raise ValueError("not a number")
-        self.history.append(float(number) * self.scale)
+        point = float(number) * self.scale
+        if self.interval is not None:
+            now = monotonic()
+            if self.history and now - self._point_started < self.interval:
+                self.history[-1] = point
+                return
+            self._point_started = now
+        self.history.append(point)
 
     @property
     def text(self) -> str:
@@ -319,10 +338,13 @@ class Sparkline(Element):
         values = list(self.history)[-chart_width:]
         if values:
             low, high = min(values), max(values)
-            span = (high - low) or 1
-            chart = "".join(
-                SPARK[round((v - low) / span * (len(SPARK) - 1))] for v in values
-            )
+            if high == low:  # steady: a level line mid-height, not one at zero
+                chart = SPARK[len(SPARK) // 2 - 1] * len(values)
+            else:
+                chart = "".join(
+                    SPARK[round((v - low) / (high - low) * (len(SPARK) - 1))]
+                    for v in values
+                )
         else:
             chart = ""
         label = fit(self.label, self.label_width)

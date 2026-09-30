@@ -202,6 +202,23 @@ def test_sparkline_keeps_recent_history():
     assert line.endswith(" 4.0 /s")
     with pytest.raises(ValueError):
         spark.update("fast")
+    for _ in range(3):
+        spark.update(7)
+    assert spark.render(30).startswith(f"{'rate':<12} ▄▄▄")  # steady, not zero
+
+
+def test_sparkline_interval_keeps_one_point_per_interval(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr("app_monitor.elements.monotonic", lambda: now[0])
+    spark = Sparkline("altitude", points=3, interval=1)
+    for t, value in [(0, 1), (0.4, 2), (0.9, 3), (1.0, 4), (1.5, 5), (2.2, 6)]:
+        now[0] = t
+        spark.update(value)
+    # Updates within an interval replace its point: the chart covers
+    # points x interval seconds, and its last point is the latest value.
+    assert spark.to_json() == {"text": "6.0", "values": [3.0, 5.0, 6.0]}
+    with pytest.raises(ValueError, match="interval"):
+        Sparkline("altitude", interval=0)
 
 
 def test_sparkline_scale():

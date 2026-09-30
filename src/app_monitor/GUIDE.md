@@ -169,6 +169,7 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 | --- | --- | --- |
 | a value or message | `TextElement(id, units="°C", format=TextFormat(precision=1))` | anything |
 | a trend | `Sparkline(id, points=60, scale=1 / 1024, units="KB/s")` | numbers |
+| a long trend of a fast value | `Sparkline(id, points=300, interval=1)`: one point a second | numbers |
 | progress | `ProgressBar(id, total=100)` | a number |
 | a reading within limits | `RangeBar(id, min_value=0, max_value=100, units="mm")` | a number |
 | on/off | `IndicatorLamp(id)` | bool, 1/0, on/off |
@@ -180,16 +181,19 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 ## 5. A custom page
 
 For a branded or hardware-style panel, write plain HTML and bind elements by
-id; no JavaScript is needed. The repository's
-`examples/robot_dashboard/` is a complete example (segment displays, LEDs).
-The repository's `examples/README.md` has a runnable example of each route
-in this guide (one command each), plus a Docker deployment.
+id; no JavaScript is needed. The repository's `examples/launch_control/` is a
+complete example (gauges, tanks, lamps, several feeds), as is
+`examples/robot_dashboard/` (segment displays, LEDs). The repository's
+`examples/README.md` has a runnable example of each route in this guide (one
+command each), plus a Docker deployment.
 
 ```html
 <link rel="stylesheet" href="/_app_monitor/panel.css">
 <span data-bind="temperature"></span>
 <div class="led" data-bind="pump" data-mode="state"></div>
 <div data-bind="rate.values" data-mode="sparkline" style="height: 24px"></div>
+<div class="needle" data-bind="pressure.ratio" data-mode="var"></div>
+<span data-bind="wind" data-stale-after="3"></span>
 <script src="/_app_monitor/app_monitor.js"></script>
 ```
 
@@ -198,6 +202,16 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
 (`data-mode="width"`); sparklines `id.text` and `id.values`. A
 `data-mode="state"` element is off for `false`, `0`, `"off"`, `"0"`,
 `"false"`, `"no"` and empty, and on for anything else.
+
+- **Gauges without JavaScript:** `data-mode="var"` sets the CSS variable
+  `--value` to the number (unset if it isn't one), e.g.
+  `.needle { rotate: calc(var(--value) * 270deg - 135deg) }` for a `RangeBar`
+  ratio, or `height: calc(var(--value) * 100%)` for a level.
+- **Several feeds:** `data-stale-after="3"` gives an element
+  `data-stale="true"` while its value hasn't arrived for 3 s (or ever), so
+  CSS can show which source went quiet, e.g.
+  `section:has([data-stale]) { opacity: 0.3 }`. Bind it to a value the source
+  sends every time; resending the same value counts as arriving.
 
 ## 6. Deploying
 
