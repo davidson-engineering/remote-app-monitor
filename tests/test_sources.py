@@ -9,7 +9,14 @@ import time
 
 import pytest
 
-from app_monitor import CsvDecoder, Monitor, SerialSource, TextElement, ZmqSource
+from app_monitor import (
+    CsvDecoder,
+    LogMonitor,
+    Monitor,
+    SerialSource,
+    TextElement,
+    ZmqSource,
+)
 from app_monitor.sources._thread import thread_items
 from app_monitor.sources.serialport import find_serial_port
 
@@ -230,3 +237,61 @@ async def test_thread_items_stops_the_thread_when_closed():
     assert await anext(items) == "tick"
     await items.aclose()
     assert finished.is_set()
+
+
+async def test_stdin_turns_pairs_and_json_into_updates_and_echoes_the_rest():
+    import io
+
+    from app_monitor import StdinSource
+
+    lines = io.StringIO(
+        "Starting job...\n"
+        "progress=5 status=running\n"
+        '{"job": {"items": 12}}\n'
+        "Error: x=5 failed\n"
+        "\n"
+    )
+    echoed, ended = io.StringIO(), []
+    source = StdinSource(stream=lines, output=echoed, on_end=lambda: ended.append(1))
+    batches = [batch async for batch in source.updates()]
+    assert batches == [
+        [{"progress": "5", "status": "running"}],
+        [{"job.items": 12}],
+    ]
+    assert echoed.getvalue() == "Starting job...\nError: x=5 failed\n\n"
+    assert ended == [1]
+
+
+async def test_stdin_with_a_decoder():
+    import io
+
+    from app_monitor import StdinSource
+
+    source = StdinSource(
+        decoder=CsvDecoder(["a", "b"]), stream=io.StringIO("1,2\nhello\n"), echo=False
+    )
+    assert [batch async for batch in source.updates()] == [[{"a": "1", "b": "2"}]]
+
+
+async def test_zmq_push_pull_keeps_messages_sent_before_the_monitor_starts(consume):
+    import zmq
+
+    port = _free_port()
+    pusher = zmq.Context.instance().socket(zmq.PUSH)
+    pusher.setsockopt(zmq.LINGER, 0)
+    pusher.connect(f"tcp://127.0.0.1:{port}")
+    try:
+        for i in range(3):  # nobody is listening yet
+            pusher.send_string(f"log early {i}")
+        monitor = Monitor()
+        monitor.add(LogMonitor("log"))
+        consume(monitor, ZmqSource(f"tcp://127.0.0.1:{port}", pattern="pull"))
+        await until(lambda: len(monitor["log"].entries) == 3)
+        assert list(monitor["log"].entries) == ["early 0", "early 1", "early 2"]
+    finally:
+        pusher.close()
+
+
+def test_zmq_rejects_unknown_patterns():
+    with pytest.raises(ValueError, match="'sub' or 'pull'"):
+        ZmqSource(pattern="pub")

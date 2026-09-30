@@ -9,8 +9,9 @@
  * data-ghost draws the unlit segments behind the value ("~" lights every
  * segment in DSEG14, "8" in DSEG7). Value and ghost are right-aligned, so decimal
  * points line up when the value has as many decimals as the ghost; add
- * .lcd-field-left for text. While the page is disconnected, values and LEDs dim
- * so stale readings are not mistaken for live ones.
+ * .lcd-field-left for text. While the page is disconnected, or no data has
+ * arrived for the dashboard's stale_after seconds, values and LEDs dim so stale
+ * readings are not mistaken for live ones.
  */
 
 @font-face {
@@ -125,6 +126,8 @@
 }
 
 html:not([data-connection="open"]) .lcd-field > *,
-html:not([data-connection="open"]) .led {
+html:not([data-connection="open"]) .led,
+html[data-stale] .lcd-field > *,
+html[data-stale] .led {
   opacity: 0.3;
 }

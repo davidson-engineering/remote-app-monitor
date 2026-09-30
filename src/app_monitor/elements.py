@@ -17,7 +17,15 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Self
 
-from .formatting import Style, TextFormat, fit, styled, visible_len
+from .formatting import (
+    Style,
+    TextFormat,
+    as_number,
+    default_text,
+    fit,
+    styled,
+    visible_len,
+)
 
 JSON = Any
 
@@ -26,6 +34,9 @@ NO_VALUE = "-"
 
 class Element:
     """Base class for everything a monitor displays."""
+
+    label_width = 12  # width of the label column in the terminal
+    block = False  # multi-line (table, log): the terminal gives it a heading
 
     def __init__(self, id: str, *, label: str | None = None, border: bool = False):
         if not id:
@@ -98,14 +109,19 @@ class TextElement(Element):
 
     @property
     def text(self) -> str:
-        return self.format.format(self.value) if self.format else str(self.value)
+        return (
+            self.format.format(self.value) if self.format else default_text(self.value)
+        )
 
     def to_json(self) -> JSON:
         return self.text
 
     def render(self, width: int) -> str:
         units = f" {self.units}" if self.units else ""
-        return f"{self.prefix}{styled(self.text, self.style)}{units}"
+        value = f"{styled(self.text, self.style)}{units}"
+        if self.prefix:  # the caller chose the layout
+            return f"{self.prefix}{value}"
+        return f"{fit(self.label, self.label_width)} {value}"
 
     def describe(self) -> dict[str, JSON]:
         return {**super().describe(), "units": self.units}
@@ -120,7 +136,7 @@ class ProgressBar(Element):
         *,
         total: float = 100,
         label: str | None = None,
-        label_width: int = 10,
+        label_width: int = 12,
         bar_style: Style | None = None,
         style: Style | None = None,
         border: bool = False,
@@ -176,7 +192,7 @@ class RangeBar(Element):
         units: str = "",
         scale: float = 1,
         precision: int = 2,
-        label_width: int = 10,
+        label_width: int = 12,
         value_width: int = 7,
         units_width: int = 4,
         marker: str = "|",
@@ -250,8 +266,73 @@ class RangeBar(Element):
         }
 
 
+SPARK = "▁▂▃▄▅▆▇█"
+
+
+class Sparkline(Element):
+    """A number with a small chart of its last ``points`` values, for spotting
+    trends (throughput, temperature, error rate)."""
+
+    def __init__(
+        self,
+        id: str,
+        *,
+        label: str | None = None,
+        points: int = 60,
+        units: str = "",
+        format: TextFormat | None = None,
+        label_width: int = 12,
+        style: Style | None = None,
+        border: bool = False,
+    ):
+        super().__init__(id, label=label, border=border)
+        if points < 2:
+            raise ValueError("points must be at least 2")
+        self.units = units
+        self.format = format
+        self.label_width = label_width
+        self.style = style
+        self.history: deque[float] = deque(maxlen=points)
+
+    def update(self, value: Any) -> None:
+        number = as_number(value)
+        if number is None:
+            raise ValueError("not a number")
+        self.history.append(float(number))
+
+    @property
+    def text(self) -> str:
+        if not self.history:
+            return NO_VALUE
+        latest = self.history[-1]
+        text = self.format.format(latest) if self.format else default_text(latest)
+        return f"{text} {self.units}" if self.units else text
+
+    def to_json(self) -> JSON:
+        return {"text": self.text, "values": list(self.history)}
+
+    def render(self, width: int) -> str:
+        chart_width = max(width - self.label_width - 2 - len(self.text), 1)
+        values = list(self.history)[-chart_width:]
+        if values:
+            low, high = min(values), max(values)
+            span = (high - low) or 1
+            chart = "".join(
+                SPARK[round((v - low) / span * (len(SPARK) - 1))] for v in values
+            )
+        else:
+            chart = ""
+        label = fit(self.label, self.label_width)
+        return f"{label} {chart.ljust(chart_width)} {styled(self.text, self.style)}"
+
+    def describe(self) -> dict[str, JSON]:
+        return {**super().describe(), "units": self.units}
+
+
 class Table(Element):
     """A grid of values. Cells are addressed as ``"<id>.<row>.<column>"``."""
+
+    block = True
 
     def __init__(
         self,
@@ -289,7 +370,7 @@ class Table(Element):
         self.values[row][column] = value
 
     def _cell(self, value: Any) -> str:
-        return self.format.format(value) if self.format else str(value)
+        return self.format.format(value) if self.format else default_text(value)
 
     def to_json(self) -> JSON:
         return {
@@ -325,6 +406,8 @@ class Table(Element):
 
 class LogMonitor(Element):
     """The most recent ``lines`` messages, newest last."""
+
+    block = True
 
     def __init__(
         self,
@@ -396,7 +479,7 @@ class IndicatorLamp(Element):
 
     def render(self, width: int) -> str:
         style = self.on_style if self.value else self.off_style
-        return f"{self.label}: {style.apply(LAMP)}"
+        return f"{fit(self.label, self.label_width)} {style.apply(LAMP)}"
 
 
 def parse_int(value: Any) -> int:
@@ -445,16 +528,21 @@ class MachineState(Element):
         return self.as_dict()
 
     def render(self, width: int) -> str:
+        indent = self.label_width + 1
         lines, line = [], ""
         for state, on in self.as_dict().items():
             lamp = (self.on_style if on else self.off_style).apply(LAMP)
             item = f"{lamp} {state}"
-            if line and visible_len(line) + 2 + visible_len(item) > width:
+            if line and indent + visible_len(line) + 2 + visible_len(item) > width:
                 lines.append(line)
                 line = ""
             line = f"{line}  {item}" if line else item
         lines.append(line)
-        return "\n".join(lines)
+        label = fit(self.label, self.label_width)
+        return "\n".join(
+            f"{label if i == 0 else ' ' * self.label_width} {text}"
+            for i, text in enumerate(lines)
+        )
 
     def describe(self) -> dict[str, JSON]:
         return {**super().describe(), "states": self.states}

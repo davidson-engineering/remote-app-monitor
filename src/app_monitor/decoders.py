@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -152,25 +153,41 @@ class CsvDecoder(LineDecoder):
 
 
 class KeyValueDecoder(LineDecoder):
-    """One ``"<id> <value>"`` or ``"<id>=<value>"`` pair per line.
+    """Values by name, one or more per line.
 
-    The value is the rest of the line after the first space (or ``=``), so it
-    may itself contain spaces: ``"log Motor 2 stalled"``.
+    - ``"X.velocity 12.5"``: the id, a space, then the rest of the line as the
+      value, which may contain spaces (``"log Motor 2 stalled"``).
+    - ``"speed=3"`` or several pairs, logfmt style:
+      ``"progress=5 rate=18.6 status=\"two words\""``.
     """
 
     def decode_line(self, line: str) -> dict[str, Any]:
-        key, value = _split_pair(line)
-        if not key:
-            raise DecodeError("expected '<id> <value>'")
-        return {key: value}
+        if pairs := parse_pairs(line):
+            return pairs
+        key, _, value = line.partition(" ")
+        if not key or not value.strip():
+            raise DecodeError("expected '<id> <value>' or '<id>=<value>'")
+        return {key: value.strip()}
 
 
-def _split_pair(line: str) -> tuple[str, str]:
-    parts = line.split(maxsplit=1)
-    if len(parts) == 2:
-        return parts[0], parts[1]
-    key, sep, value = line.partition("=")
-    return (key.strip(), value.strip()) if sep else ("", "")
+def parse_pairs(line: str) -> dict[str, str] | None:
+    """Parse ``key=value`` pairs (values may be double-quoted), or return None
+    unless every word on the line is such a pair."""
+    lexer = shlex.shlex(line, posix=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    lexer.escape = ""  # keep backslashes, e.g. in Windows paths
+    try:
+        words = list(lexer)
+    except ValueError:  # unbalanced quotes: not a list of pairs
+        return None
+    pairs = {}
+    for word in words:
+        key, sep, value = word.partition("=")
+        if not sep or not key or any(c.isspace() for c in key):
+            return None
+        pairs[key] = value
+    return pairs or None
 
 
 class JsonDecoder(LineDecoder):
@@ -184,15 +201,16 @@ class JsonDecoder(LineDecoder):
             raise DecodeError(f"invalid JSON: {error}") from None
         if not isinstance(data, dict):
             raise DecodeError("expected a JSON object")
-        return _flatten(data)
+        return flatten(data)
 
 
-def _flatten(data: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
+def flatten(data: Mapping[str, Any], prefix: str = "") -> dict[str, Any]:
+    """``{"X": {"velocity": 1.5}}`` to ``{"X.velocity": 1.5}``."""
     flat: dict[str, Any] = {}
     for key, value in data.items():
         path = f"{prefix}{key}"
         if isinstance(value, Mapping) and value:
-            flat.update(_flatten(value, f"{path}."))
+            flat.update(flatten(value, f"{path}."))
         else:
             flat[path] = value
     return flat

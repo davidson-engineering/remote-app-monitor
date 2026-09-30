@@ -10,8 +10,6 @@ so id "X" with param "velocity" updates element "X.velocity".
 """
 
 import argparse
-import asyncio
-import contextlib
 import logging
 import math
 
@@ -97,8 +95,7 @@ def main() -> None:
         feed = ZmqSource(args.zmq)
     else:
         feed = SerialSource(args.port, args.baudrate, decoder=BinaryFrameDecoder(NAMES))
-    with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(build_monitor().run(sources=[feed], outputs=[TerminalDisplay()]))
+    build_monitor().serve(sources=[feed], outputs=[TerminalDisplay()])
 
 
 if __name__ == "__main__":

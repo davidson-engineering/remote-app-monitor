@@ -36,6 +36,10 @@ def test_line_decoder_decode_single_message():
         (b"log Motor 2 stalled", {"log": "Motor 2 stalled"}),
         (b"logger var=12.5", {"logger": "var=12.5"}),
         (b"speed=3", {"speed": "3"}),
+        (b"progress=5 rate=18.6", {"progress": "5", "rate": "18.6"}),
+        (b'status="loading data" n=2', {"status": "loading data", "n": "2"}),
+        (b"path=C:\\temp\\x", {"path": "C:\\temp\\x"}),  # backslashes kept
+        (b"log it's done", {"log": "it's done"}),  # stray quote: plain value
     ],
 )
 def test_key_value(line, expected):

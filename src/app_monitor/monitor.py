@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
+import concurrent.futures
+import contextlib
 import logging
-from collections.abc import AsyncIterator, Iterable, Iterator, Mapping, Sequence
+import threading
+from collections.abc import (
+    AsyncIterator,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, Self, TypeVar
 
-from .elements import JSON, Element
+from .elements import JSON, Element, IndicatorLamp, TextElement
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +29,8 @@ Update = Mapping[str, Any]
 # Unknown ids are reported once each; stop remembering new ones past this many
 # so a noisy link can't grow memory without bound.
 _MAX_REPORTED_KEYS = 1000
+
+T = TypeVar("T")
 
 
 @dataclass
@@ -37,7 +50,14 @@ class Source(Protocol):
 
 
 class Output(Protocol):
-    """Something that displays a monitor until cancelled."""
+    """Something that displays a monitor until cancelled.
+
+    An output may also define ``async def start(monitor)`` for setup that can
+    fail, like binding a port. The monitor awaits it before anything runs, so
+    such errors are raised straight away (and from :meth:`Monitor.start`).
+    ``async def flush(monitor)`` is awaited before :meth:`Monitor.stop` shuts
+    down, to deliver the final values.
+    """
 
     async def run(self, monitor: Monitor) -> None: ...
 
@@ -45,33 +65,44 @@ class Output(Protocol):
 class Monitor:
     """Holds the elements, applies updates to them and tracks what changed.
 
-    Updates are addressed by element id. For multi-part elements the id may be
-    followed by a field (``"status.motor1.speed"`` updates field
-    ``"motor1.speed"`` of element ``"status"``).
+    Updates are addressed by element id. An id the monitor hasn't seen creates
+    a new element (a lamp for ``True``/``False``, text otherwise; dotted ids
+    such as ``"job.rate"`` are grouped under ``"job"``). Declare elements
+    yourself for bars, units and formats, and pass ``strict=True`` to reject
+    unknown ids instead. For multi-part elements the id may be followed by a
+    field (``"status.motor1.speed"`` updates field ``"motor1.speed"`` of
+    element ``"status"``).
 
-    Every applied batch bumps :attr:`version`; outputs use
+    ``update``, ``set``, ``add`` and ``add_group`` may be called from any
+    thread. Every applied batch bumps :attr:`version`; outputs use
     :meth:`wait_for_change` and :meth:`changes_since` to redraw only when, and
-    only what, something changed. All methods must be called from the event
-    loop's thread.
+    only what, something changed.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, strict: bool = False, max_elements: int = 500) -> None:
+        self.strict = strict
+        self.max_elements = max_elements
         self.layout: list[Element | Group] = []
         self.version = 0
+        self.layout_version = 0
+        self.rejected = 0
         self._elements: dict[str, Element] = {}
         self._versions: dict[str, int] = {}
+        self._groups: dict[str, Group] = {}
         self._routes: dict[str, tuple[Element, str | None]] = {}
-        self._changed = asyncio.Event()
         self._reported: set[str] = set()
-        self.rejected = 0
+        self._changed = asyncio.Event()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_thread: int | None = None
+        self._thread: threading.Thread | None = None
+        self._task: asyncio.Task[None] | None = None
+        self._outputs: list[Output] = []
 
     # -- building -----------------------------------------------------------
 
     def add(self, *elements: Element) -> None:
         """Add elements, displayed in the order added."""
-        for element in elements:
-            self._register(element)
-            self.layout.append(element)
+        self._on_loop(self._add, elements)
 
     def add_group(
         self, name: str, elements: Sequence[Element], *, border: bool = True
@@ -81,18 +112,66 @@ class Monitor:
         Element ``"velocity"`` becomes ``"<name>.velocity"``, so the same list can
         be reused for several groups (e.g. one per axis).
         """
+        return self._on_loop(self._add_group, name, list(elements), border)
+
+    def _add(self, elements: Sequence[Element]) -> None:
+        self._check_new(elements)
+        for element in elements:
+            self._register(element)
+            self.layout.append(element)
+        self._layout_changed([element.id for element in elements])
+
+    def _add_group(self, name: str, elements: list[Element], border: bool) -> Group:
+        if name in self._groups:
+            raise ValueError(f"duplicate group {name!r}")
         group = Group(name, [el.copy(f"{name}.{el.id}") for el in elements], border)
+        self._check_new(group.elements)
         for element in group.elements:
             self._register(element)
+        self._groups[name] = group
         self.layout.append(group)
+        self._layout_changed([element.id for element in group.elements])
         return group
 
+    def _check_new(self, elements: Sequence[Element]) -> None:
+        ids = [element.id for element in elements]
+        for id in ids:
+            if id in self._elements or ids.count(id) > 1:
+                raise ValueError(f"duplicate element id {id!r}")
+
     def _register(self, element: Element) -> None:
-        if element.id in self._elements:
-            raise ValueError(f"duplicate element id {element.id!r}")
         self._elements[element.id] = element
         self._versions[element.id] = self.version
         self._routes.clear()
+
+    def _create(self, key: str, value: Any) -> Element | None:
+        """Create an element for an id seen for the first time."""
+        if self.strict:
+            self._reject(key, "no element with this id")
+            return None
+        if len(self._elements) >= self.max_elements:
+            self._reject(
+                key,
+                f"no element with this id, and the monitor already has "
+                f"{self.max_elements} elements (max_elements)",
+            )
+            return None
+        if isinstance(value, bool):
+            element: Element = IndicatorLamp(key, off_color="white")
+        else:
+            element = TextElement(key)
+        self._register(element)
+        prefix, dot, _ = key.rpartition(".")
+        if dot:
+            group = self._groups.get(prefix)
+            if group is None:
+                group = self._groups[prefix] = Group(prefix)
+                self.layout.append(group)
+            group.elements.append(element)
+        else:
+            self.layout.append(element)
+        self.layout_version += 1
+        return element
 
     # -- access -------------------------------------------------------------
 
@@ -103,7 +182,7 @@ class Monitor:
         return id in self._elements
 
     def __iter__(self) -> Iterator[Element]:
-        return iter(self._elements.values())
+        return iter(list(self._elements.values()))
 
     def __len__(self) -> int:
         return len(self._elements)
@@ -113,31 +192,38 @@ class Monitor:
     def update(self, *updates: Update) -> None:
         """Apply one or more ``{id: value}`` mappings, in order.
 
-        Unknown ids and values an element rejects are logged (once per id) and
-        skipped; they never interrupt the rest of the batch.
+        Values an element rejects (and unknown ids, with ``strict=True``) are
+        logged once per id and skipped; they never interrupt the rest of the
+        batch. From another thread this returns immediately and the monitor's
+        event loop applies the updates, in order, a moment later.
         """
-        changed = False
-        version = self.version + 1
-        for mapping in updates:
-            for key, value in mapping.items():
-                if element := self._apply(key, value):
-                    self._versions[element.id] = version
-                    changed = True
-        if changed:
-            self.version = version
-            self._changed.set()
-            self._changed = asyncio.Event()
+        if loop := self._loop_elsewhere():
+            batch = [dict(mapping) for mapping in updates]
+            with contextlib.suppress(RuntimeError):  # loop closed meanwhile
+                loop.call_soon_threadsafe(self._apply_all, batch)
+                return
+        self._apply_all(updates)
 
     def set(self, id: str, value: Any) -> None:
         """Update a single element (or field)."""
         self.update({id: value})
 
+    def _apply_all(self, updates: Iterable[Update]) -> None:
+        changed = []
+        for mapping in updates:
+            for key, value in mapping.items():
+                if element := self._apply(key, value):
+                    changed.append(element.id)
+        if changed:
+            self._mark_changed(changed)
+
     def _apply(self, key: str, value: Any) -> Element | None:
         """Update the element ``key`` addresses; return it, or None if rejected."""
         route = self._route(key)
         if route is None:
-            self._reject(key, "no element with this id")
-            return None
+            if (element := self._create(key, value)) is None:
+                return None
+            route = (element, None)
         element, field = route
         try:
             if field is None:
@@ -181,10 +267,22 @@ class Monitor:
                 reason,
             )
 
+    def _layout_changed(self, ids: Iterable[str]) -> None:
+        self.layout_version += 1
+        self._mark_changed(ids)
+
+    def _mark_changed(self, ids: Iterable[str]) -> None:
+        self.version += 1
+        for id in ids:
+            self._versions[id] = self.version
+        self._changed.set()
+        self._changed = asyncio.Event()
+
     # -- observing ----------------------------------------------------------
 
     async def wait_for_change(self, since: int) -> int:
         """Wait until :attr:`version` differs from ``since``; return the new version."""
+        self._bind()
         while self.version == since:
             await self._changed.wait()
         return self.version
@@ -220,22 +318,195 @@ class Monitor:
 
     async def consume(self, source: Source) -> None:
         """Apply every batch ``source`` produces, until it ends or is cancelled."""
+        self._bind()
         async for batch in source.updates():
-            self.update(*batch)
+            self._apply_all(batch)
 
     async def run(
         self, *, sources: Iterable[Source] = (), outputs: Iterable[Output] = ()
     ) -> None:
         """Feed all ``sources`` into the monitor and run all ``outputs``.
 
-        Runs until cancelled. If any source or output fails, the others are
-        cancelled and the error propagates.
+        Runs until cancelled. If a source or output fails, the others are
+        cancelled and its error is raised.
         """
-        async with asyncio.TaskGroup() as tasks:
-            for source in sources:
-                tasks.create_task(self.consume(source))
+        sources, outputs = list(sources), list(outputs)
+        await self._start_outputs(outputs)
+        await self._run(sources, outputs)
+
+    def serve(
+        self, *, sources: Iterable[Source] = (), outputs: Iterable[Output] | None = None
+    ) -> None:
+        """Run in the foreground until Ctrl+C, then return quietly.
+
+        ``outputs`` defaults to a :class:`WebDashboard`.
+        """
+        with contextlib.suppress(KeyboardInterrupt):
+            asyncio.run(self.run(sources=sources, outputs=_default_outputs(outputs)))
+
+    def start(
+        self,
+        *,
+        sources: Iterable[Source] = (),
+        outputs: Iterable[Output] | None = None,
+        timeout: float = 10,
+    ) -> Self:
+        """Run in a background thread, returning once the outputs are up.
+
+        Your program then carries on and calls :meth:`set`/:meth:`update` from
+        any thread. ``outputs`` defaults to a :class:`WebDashboard`. Setup
+        errors (e.g. the port is in use) are raised here. It stops when your
+        program exits, after delivering the final values, or earlier with
+        :meth:`stop` or by using the monitor as a context manager.
+        """
+        if self._thread is not None:
+            raise RuntimeError("this monitor is already running")
+        sources, outputs = list(sources), _default_outputs(outputs)
+        self._outputs = outputs
+        ready = threading.Event()
+        failure: list[BaseException] = []
+
+        async def main() -> None:
+            self._task = asyncio.current_task()
+            await self._start_outputs(outputs)
+            ready.set()
+            await self._run(sources, outputs)
+
+        def thread() -> None:
+            try:
+                asyncio.run(main())
+            except asyncio.CancelledError:
+                pass  # stopped
+            except BaseException as error:
+                if ready.is_set():
+                    logger.error("Monitor stopped: %s", error, exc_info=error)
+                failure.append(error)
+            finally:
+                self._task = None
+                ready.set()
+
+        self._thread = threading.Thread(target=thread, name="app_monitor", daemon=True)
+        self._thread.start()
+        if not ready.wait(timeout):
+            raise TimeoutError(f"the monitor did not start within {timeout} s")
+        if failure:
+            self._thread = None
+            raise failure[0]
+        atexit.register(self.stop)
+        return self
+
+    def stop(self, timeout: float = 5) -> None:
+        """Stop a monitor started with :meth:`start`: deliver the latest values
+        to the outputs, shut them down and wait for the thread to finish."""
+        thread, task, loop = self._thread, self._task, self._loop
+        if thread is None:
+            return
+        if threading.get_ident() == self._loop_thread:
+            raise RuntimeError("stop() can't be called from the monitor's own thread")
+        atexit.unregister(self.stop)
+        if task is not None and loop is not None and loop.is_running():
+            with contextlib.suppress(Exception):  # stopping anyway
+                asyncio.run_coroutine_threadsafe(self._flush_outputs(), loop).result(
+                    timeout
+                )
+            with contextlib.suppress(RuntimeError):  # already finished
+                loop.call_soon_threadsafe(task.cancel)
+        thread.join(timeout)
+        self._thread = None
+
+    async def _flush_outputs(self) -> None:
+        for output in self._outputs:
+            if (flush := getattr(output, "flush", None)) is not None:
+                await flush(self)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.stop()
+
+    async def _start_outputs(self, outputs: list[Output]) -> None:
+        self._bind()
+        started: list[Output] = []
+        try:
             for output in outputs:
-                tasks.create_task(output.run(self))
+                if (start := getattr(output, "start", None)) is not None:
+                    await start(self)
+                    started.append(output)
+        except BaseException:
+            for output in started:
+                if (close := getattr(output, "close", None)) is not None:
+                    await close()
+            raise
+
+    async def _run(self, sources: list[Source], outputs: list[Output]) -> None:
+        try:
+            async with asyncio.TaskGroup() as tasks:
+                for source in sources:
+                    tasks.create_task(self.consume(source))
+                for output in outputs:
+                    tasks.create_task(output.run(self))
+        except ExceptionGroup as group:
+            if len(group.exceptions) == 1:  # the usual case: show just that error
+                raise group.exceptions[0] from None
+            raise
+
+    # -- threads ------------------------------------------------------------
+
+    def _bind(self) -> None:
+        """Remember the running event loop, so other threads can hand it work."""
+        loop = asyncio.get_running_loop()
+        if loop is not self._loop:
+            self._loop = loop
+            self._loop_thread = threading.get_ident()
+            self._changed = asyncio.Event()
+
+    def _loop_elsewhere(self) -> asyncio.AbstractEventLoop | None:
+        """The monitor's event loop, if it's running on a thread other than ours."""
+        loop = self._loop
+        if loop is None or not loop.is_running():
+            return None
+        if threading.get_ident() == self._loop_thread:
+            return None
+        return loop
+
+    def _on_loop(self, function: Callable[..., T], *args: Any) -> T:
+        """Call ``function`` on the event loop's thread and wait for the result."""
+        loop = self._loop_elsewhere()
+        if loop is None:
+            return function(*args)
+        result: concurrent.futures.Future[T] = concurrent.futures.Future()
+
+        def call() -> None:
+            try:
+                result.set_result(function(*args))
+            except BaseException as error:
+                result.set_exception(error)
+
+        loop.call_soon_threadsafe(call)
+        return result.result(timeout=10)  # never hang if the loop is shutting down
+
+
+def start(
+    *,
+    sources: Iterable[Source] = (),
+    outputs: Iterable[Output] | None = None,
+    strict: bool = False,
+) -> Monitor:
+    """Create a :class:`Monitor` and :meth:`~Monitor.start` it in the background::
+
+    monitor = start()                 # prints the dashboard's address
+    monitor.set("progress", 0.5)      # from anywhere in your program
+    """
+    return Monitor(strict=strict).start(sources=sources, outputs=outputs)
+
+
+def _default_outputs(outputs: Iterable[Output] | None) -> list[Output]:
+    if outputs is not None:
+        return list(outputs)
+    from . import WebDashboard  # imported lazily: needs the [web] extra
+
+    return [WebDashboard()]
 
 
 def _describe(element: Element) -> dict[str, JSON]:

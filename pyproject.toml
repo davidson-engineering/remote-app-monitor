@@ -30,6 +30,9 @@ zmq = ["pyzmq>=26"]
 web = ["aiohttp>=3.10"]
 all = ["remote-app-monitor[serial,zmq,web]"]
 
+[project.scripts]
+app-monitor = "app_monitor.cli:main"
+
 [project.urls]
 Repository = "https://github.com/davidson-engineering/remote-app-monitor"
 
