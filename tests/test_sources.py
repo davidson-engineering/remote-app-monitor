@@ -10,6 +10,7 @@ import time
 import pytest
 
 from app_monitor import CsvDecoder, Monitor, SerialSource, TextElement, ZmqSource
+from app_monitor.sources._thread import thread_items
 from app_monitor.sources.serialport import find_serial_port
 
 from .conftest import FakeSerialDevice
@@ -37,7 +38,11 @@ async def until(condition, within: float = 3.0) -> None:
 
 @pytest.fixture
 async def consume():
-    """Run ``monitor.consume(source)`` in the background for the test."""
+    """Run ``monitor.consume(source)`` in the background for the test.
+
+    If a source failed, its exception is raised at teardown so the test report
+    shows the cause, not just a timeout.
+    """
     tasks = []
 
     def start(monitor, source):
@@ -46,7 +51,9 @@ async def consume():
     yield start
     for task in tasks:
         task.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
+    for result in await asyncio.gather(*tasks, return_exceptions=True):
+        if not isinstance(result, (asyncio.CancelledError, type(None))):
+            raise result
 
 
 async def test_serial_keeps_up_with_a_fast_device(fake_device, consume):
@@ -155,3 +162,71 @@ async def test_zmq_source_end_to_end(consume):
         assert monitor["X.velocity"].value == "12.5"
     finally:
         publisher.close()
+
+
+async def test_zmq_source_can_bind_for_many_publishers(consume):
+    import zmq
+
+    monitor = Monitor()
+    monitor.add(TextElement("v"))
+    port = _free_port()
+    consume(monitor, ZmqSource(f"tcp://127.0.0.1:{port}", bind=True))
+    publisher = zmq.Context.instance().socket(zmq.PUB)
+    publisher.setsockopt(zmq.LINGER, 0)
+    publisher.connect(f"tcp://127.0.0.1:{port}")
+    try:
+        deadline = time.monotonic() + 3
+        while monitor["v"].value != "1":
+            assert time.monotonic() < deadline
+            publisher.send_string("v 1")
+            await asyncio.sleep(0.02)
+    finally:
+        publisher.close()
+
+
+async def test_zmq_source_reports_bad_endpoints():
+    import zmq
+
+    with pytest.raises(zmq.ZMQError):
+        await asyncio.wait_for(Monitor().consume(ZmqSource("nonsense")), 2)
+
+
+def _free_port() -> int:
+    import socket
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+async def test_thread_items_yields_until_the_work_returns():
+    def work(emit, stop):
+        emit("a")
+        emit("b")
+
+    assert [item async for item in thread_items(work, "test")] == ["a", "b"]
+
+
+async def test_thread_items_raises_what_the_work_raises():
+    def work(emit, stop):
+        emit("a")
+        raise OSError("device gone")
+
+    items = thread_items(work, "test")
+    assert await anext(items) == "a"
+    with pytest.raises(OSError, match="device gone"):
+        await anext(items)
+
+
+async def test_thread_items_stops_the_thread_when_closed():
+    finished = threading.Event()
+
+    def work(emit, stop):
+        while not stop.wait(0.01):
+            emit("tick")
+        finished.set()
+
+    items = thread_items(work, "test")
+    assert await anext(items) == "tick"
+    await items.aclose()
+    assert finished.is_set()

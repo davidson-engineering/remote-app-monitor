@@ -52,11 +52,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--strict-markers"
-filterwarnings = [
-  "error",
-  # pyzmq on Windows' default (proactor) event loop: works, but warns once.
-  "ignore:Proactor event loop does not implement add_reader:RuntimeWarning",
-]
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true

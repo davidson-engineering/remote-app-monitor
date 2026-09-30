@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
+from contextlib import aclosing
 from typing import Any
 
 import serial
@@ -13,6 +13,7 @@ from serial.tools import list_ports
 
 from ..decoders import Decoder
 from ..monitor import Update
+from ._thread import Emit, thread_items
 
 logger = logging.getLogger(__name__)
 
@@ -67,36 +68,14 @@ class SerialSource:
         self.serial_options = serial_options
 
     async def updates(self) -> AsyncIterator[list[Update]]:
-        loop = asyncio.get_running_loop()
-        queue: asyncio.Queue[Any] = asyncio.Queue()
-        stop = threading.Event()
-
-        def emit(item: object) -> None:
-            try:
-                loop.call_soon_threadsafe(queue.put_nowait, item)
-            except RuntimeError:  # event loop already closed
-                stop.set()
-
-        reader = threading.Thread(
-            target=self._read_forever, args=(emit, stop), name=repr(self), daemon=True
-        )
-        reader.start()
-        try:
-            while True:
-                item = await queue.get()
+        async with aclosing(thread_items(self._read_forever, repr(self))) as items:
+            async for item in items:
                 if item is _CONNECTED:
                     self.decoder.reset()  # drop any partial message from before
-                elif isinstance(item, BaseException):
-                    raise item
                 elif batch := self.decoder.feed(item):
                     yield batch
-        finally:
-            stop.set()
-            await asyncio.to_thread(reader.join)
 
-    def _read_forever(
-        self, emit: Callable[[object], None], stop: threading.Event
-    ) -> None:
+    def _read_forever(self, emit: Emit, stop: threading.Event) -> None:
         """Background thread: open, read and reconnect until ``stop`` is set."""
         waiting_logged = False
         while not stop.is_set():
@@ -104,8 +83,7 @@ class SerialSource:
                 connection = self._open()
             except (serial.SerialException, OSError, LookupError) as error:
                 if self.reconnect_delay is None:
-                    emit(error)
-                    return
+                    raise
                 log = logger.debug if waiting_logged else logger.warning
                 log("Waiting for serial device %s: %s", self.port, error)
                 waiting_logged = True
@@ -121,8 +99,7 @@ class SerialSource:
                             emit(data)
             except (serial.SerialException, OSError) as error:
                 if self.reconnect_delay is None:
-                    emit(error)
-                    return
+                    raise
                 logger.warning("Lost serial device %s: %s", connection.port, error)
                 stop.wait(self.reconnect_delay)
 
