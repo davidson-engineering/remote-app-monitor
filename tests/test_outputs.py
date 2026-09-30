@@ -256,3 +256,34 @@ async def test_web_returns_current_values_as_json(client):
     values = await response.json()
     assert values["speed"] == "3"
     assert values["X.velocity"] == {"text": "12.00 mm/s", "ratio": 0.12}
+
+
+def test_open_browser_opens_the_dashboard_once_it_is_up(monkeypatch):
+    opened = []
+    monkeypatch.setattr("webbrowser.open", opened.append)
+    monkeypatch.setattr("app_monitor.web._has_display", lambda: True)
+    web = WebDashboard(port=0, announce=False, open_browser=True)
+    monitor = Monitor().start(outputs=[web])
+    monitor.stop()
+    assert opened == [web.url]
+
+
+@pytest.mark.parametrize(
+    ("platform", "env", "expected"),
+    [
+        ("darwin", {}, True),
+        ("win32", {}, True),
+        ("linux", {}, False),  # e.g. over SSH: don't start a text browser
+        ("linux", {"DISPLAY": ":0"}, True),
+        ("linux", {"WAYLAND_DISPLAY": "wayland-0"}, True),
+    ],
+)
+def test_browser_is_only_opened_with_a_display(monkeypatch, platform, env, expected):
+    from app_monitor.web import _has_display
+
+    monkeypatch.setattr("sys.platform", platform)
+    for name in ("DISPLAY", "WAYLAND_DISPLAY"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    assert _has_display() is expected

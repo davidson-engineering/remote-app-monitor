@@ -202,3 +202,11 @@ def test_sparkline_keeps_recent_history():
     assert line.endswith(" 4.0 /s")
     with pytest.raises(ValueError):
         spark.update("fast")
+
+
+def test_sparkline_scale():
+    spark = Sparkline(
+        "net", units="KB/s", scale=1 / 1024, format=TextFormat(precision=1)
+    )
+    spark.update(2048)
+    assert spark.to_json() == {"text": "2.0 KB/s", "values": [2.0]}
