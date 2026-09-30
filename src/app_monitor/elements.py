@@ -338,10 +338,13 @@ class Sparkline(Element):
         values = list(self.history)[-chart_width:]
         if values:
             low, high = min(values), max(values)
-            span = (high - low) or 1
-            chart = "".join(
-                SPARK[round((v - low) / span * (len(SPARK) - 1))] for v in values
-            )
+            if high == low:  # steady: a level line mid-height, not one at zero
+                chart = SPARK[len(SPARK) // 2 - 1] * len(values)
+            else:
+                chart = "".join(
+                    SPARK[round((v - low) / (high - low) * (len(SPARK) - 1))]
+                    for v in values
+                )
         else:
             chart = ""
         label = fit(self.label, self.label_width)

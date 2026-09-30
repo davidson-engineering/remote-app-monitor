@@ -202,6 +202,9 @@ def test_sparkline_keeps_recent_history():
     assert line.endswith(" 4.0 /s")
     with pytest.raises(ValueError):
         spark.update("fast")
+    for _ in range(3):
+        spark.update(7)
+    assert spark.render(30).startswith(f"{'rate':<12} ▄▄▄")  # steady, not zero
 
 
 def test_sparkline_interval_keeps_one_point_per_interval(monkeypatch):

@@ -101,6 +101,10 @@ async def test_sparkline_binding_draws_the_history(page, serve):
     await expect(page.locator("#chart polyline")).to_have_attribute(
         "points", "0.00,19.00 50.00,1.00 100.00,10.00"
     )
+    monitor.update(*[{"rate": 7}] * 5)  # steady: a level line, not one at zero
+    await expect(page.locator("#chart polyline")).to_have_attribute(
+        "points", "0.00,10.00 25.00,10.00 50.00,10.00 75.00,10.00 100.00,10.00"
+    )
 
 
 async def test_var_binding_hands_numbers_to_css(page, serve):

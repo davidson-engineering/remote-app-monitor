@@ -85,11 +85,12 @@
       return;
     }
     const low = Math.min(...numbers);
-    const span = Math.max(...numbers) - low || 1;
+    const span = Math.max(...numbers) - low;
     const step = 100 / (numbers.length - 1);
+    const y = (v) => (span ? 19 - ((v - low) / span) * 18 : 10); // steady: mid-height
     line.setAttribute(
       "points",
-      numbers.map((v, i) => `${(i * step).toFixed(2)},${(19 - ((v - low) / span) * 18).toFixed(2)}`).join(" "),
+      numbers.map((v, i) => `${(i * step).toFixed(2)},${y(v).toFixed(2)}`).join(" "),
     );
   }
   // Numbers for CSS; text from devices ("+45.5") counts, "" and "n/a" don't.
