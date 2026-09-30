@@ -30,7 +30,7 @@ done
 started=$(date +%s)
 while true; do
   load=$(uptime | awk -F'load averages?: ' '{split($2, a, /[ ,]+/); print a[1]}')
-  disk=$(df -P / | awk 'NR == 2 {print $5}')
+  disk=$(df -P "$HOME" | awk 'NR == 2 {print $5}') # the volume with your files
   # Each line is key=value pairs; quote values with spaces.
   curl -fs "$url/update" -d "uptime_s=$(($(date +%s) - started)) load=$load disk_used=$disk"
   curl -fs "$url/update" -d "time=\"$(date '+%H:%M:%S')\" random=$RANDOM"

@@ -18,7 +18,10 @@ import time
 
 from app_monitor import WebDashboard, start
 
-monitor = start(outputs=[WebDashboard(title="Hello, dashboard", open_browser=True)])
+# port=0: any free port, so examples can run side by side (the address is
+# printed, and the page opens by itself).
+dashboard = WebDashboard(title="Hello, dashboard", port=0, open_browser=True)
+monitor = start(outputs=[dashboard])
 
 try:
     for batch in itertools.count(1):
