@@ -13,6 +13,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Sequence
+from importlib import resources
 
 from . import __version__
 from .decoders import (
@@ -50,6 +51,12 @@ def parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    p.add_argument(
+        "--guide",
+        action="store_true",
+        help="print a concise guide to building monitors (written for AI coding "
+        "agents) and exit",
+    )
 
     inputs = p.add_argument_group(
         "inputs (stdin is read when it's a pipe; the dashboard also accepts "
@@ -99,7 +106,8 @@ def parser() -> argparse.ArgumentParser:
     display.add_argument(
         "--terminal",
         action="store_true",
-        help="draw in this terminal instead of serving a web page",
+        help="draw in this terminal instead of serving a web page "
+        "(log messages go to app-monitor.log)",
     )
     display.add_argument("-v", "--verbose", action="store_true", help="log more detail")
     return p
@@ -157,6 +165,11 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
     return monitor, sources, outputs
 
 
+def guide() -> str:
+    """The agent guide shipped with the package (GUIDE.md)."""
+    return resources.files("app_monitor").joinpath("GUIDE.md").read_text("utf-8")
+
+
 def _input_ended(stdin: StdinSource) -> None:
     if not stdin.lines_read:  # e.g. started with </dev/null: nothing to report
         return
@@ -185,6 +198,9 @@ def serial_decoder(args: argparse.Namespace) -> Decoder:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    if args.guide:
+        print(guide(), end="")
+        return 0
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s: %(message)s",

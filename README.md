@@ -71,6 +71,7 @@ my_program | app-monitor
 app-monitor &
 curl -d 'temperature=21.5 status=ok' http://127.0.0.1:8080/update
 curl -d '{"job": {"progress": 5}}' http://127.0.0.1:8080/update
+curl http://127.0.0.1:8080/values     # what the dashboard shows, as JSON
 
 # Read a device.
 app-monitor --serial auto --csv temperature,humidity
@@ -78,7 +79,8 @@ app-monitor --zmq tcp://localhost:5556
 ```
 
 `app-monitor --help` lists every option, including `--terminal` to draw in the
-terminal instead of the browser.
+terminal instead of the browser (its log messages then go to
+`app-monitor.log`).
 
 ### From a separate Python program
 
@@ -95,7 +97,8 @@ dashboard.update({"rate": 18.6, "status": "running"})
 
 Updates are sent in order in the background. If the dashboard isn't running
 yet they're kept and retried, and anything pending is sent when your program
-exits, so even a two-line script's values arrive. For one message,
+exits, so even a two-line script's values arrive. Pass `token=` if the
+dashboard was given one. For one message,
 `from app_monitor.client import send` and `send({"status": "done"})`.
 
 ## Choosing how values look
@@ -196,8 +199,8 @@ Corrupt frames are skipped and decoding resumes at the next `0xAA`.
 ## Outputs
 
 **`WebDashboard(page=None, static_dir=None, host="127.0.0.1", port=8080, title="Monitor", token=None, stale_after=None)`**
-serves `page` (or the generic page), streams values over a WebSocket and
-accepts `POST /update`. `stale_after=2` dims values when no data has arrived
+serves `page` (or the generic page), streams values over a WebSocket, accepts
+`POST /update` and returns the current values as JSON from `GET /values`. `stale_after=2` dims values when no data has arrived
 for 2 seconds, for sources that should update continuously. Your own page
 loads `/_app_monitor/app_monitor.js` and marks up elements:
 
@@ -264,10 +267,23 @@ python examples/robot_dashboard/dashboard.py --port /dev/ttys012
   subclass `Decoder` for binary formats.
 - **Source:** any object with an async generator method `updates()` that
   yields lists of `{id: value}` mappings.
-- **Output:** any object with `async def run(monitor)` (and optionally
-  `async def start(monitor)` for setup that can fail). Use
+- **Output:** any object with `async def run(monitor)`, and optionally
+  `async def start(monitor)` for setup that can fail and
+  `async def flush(monitor)` to deliver the last values before
+  `Monitor.stop()` shuts down. Use
   `await monitor.wait_for_change(version)` and
   `monitor.changes_since(version)` to react to new data.
+
+## For AI coding agents
+
+`app-monitor --guide` prints a concise, recipe-first guide to building and
+deploying monitors, written for coding agents (it is also imported by this
+repository's `CLAUDE.md`). To make it discoverable in another project, add a
+line like this to that project's `CLAUDE.md` or `AGENTS.md`:
+
+```markdown
+- Live dashboards for this project: `remote-app-monitor`; run `app-monitor --guide` before building one.
+```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
 

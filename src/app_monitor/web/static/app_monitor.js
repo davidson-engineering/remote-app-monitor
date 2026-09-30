@@ -2,6 +2,7 @@
 //
 //   <span data-bind="position_x"></span>                            text (default)
 //   <div data-bind="machine.estop" data-mode="state"></div>         data-state="on" | "off"
+//                                                                   (text "off", "0", "false" count as off)
 //   <div data-bind="X.velocity.ratio" data-mode="width"></div>      style.width = value * 100%
 //   <div data-bind="rate.values" data-mode="sparkline"></div>       line chart of a number list
 //
@@ -77,10 +78,15 @@
       numbers.map((v, i) => `${(i * step).toFixed(2)},${(19 - ((v - low) / span) * 18).toFixed(2)}`).join(" "),
     );
   }
+  // Text sources (curl, serial, pipes) send "off" / "0": those are off too.
+  const OFF = new Set(["", "0", "false", "off", "no"]);
+  const isOn = (value) =>
+    typeof value === "string" ? !OFF.has(value.trim().toLowerCase()) : Boolean(value);
+
   function show(el, value) {
     switch (el.dataset.mode) {
       case "state":
-        el.dataset.state = value ? "on" : "off";
+        el.dataset.state = isOn(value) ? "on" : "off";
         break;
       case "width": {
         const ratio = typeof value === "number" ? Math.min(Math.max(value, 0), 1) : 0;

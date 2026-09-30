@@ -247,3 +247,12 @@ def test_terminal_labels_every_row_and_heads_blocks(monkeypatch):
     assert frame[2].startswith("┌")
     assert frame[-2] == "\x1b[1mLog\x1b[0m"
     assert frame[-1].rstrip() == "hello"
+
+
+async def test_web_returns_current_values_as_json(client):
+    client.monitor.update({"speed": 3, "X.velocity": 12})
+    response = await client.get("/values")
+    assert response.status == 200
+    values = await response.json()
+    assert values["speed"] == "3"
+    assert values["X.velocity"] == {"text": "12.00 mm/s", "ratio": 0.12}

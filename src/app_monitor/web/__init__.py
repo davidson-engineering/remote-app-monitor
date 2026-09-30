@@ -11,10 +11,12 @@ a dashboard is plain HTML::
 
 Without a page of your own, a generic page listing every element is served.
 
-Any program can also push values with an HTTP POST to ``/update``::
+Any program can also push values with an HTTP POST to ``/update``, and read
+the current values from ``/values``::
 
     curl -d '{"temperature": 21.5}' http://127.0.0.1:8080/update
     curl -d 'progress=5 status=running' http://127.0.0.1:8080/update
+    curl http://127.0.0.1:8080/values
 """
 
 from __future__ import annotations
@@ -41,8 +43,9 @@ MONITOR_KEY = web.AppKey("monitor", Monitor)
 
 
 class WebDashboard:
-    """Serves a dashboard page, streams the monitor's values to it, and accepts
-    updates posted to ``/update``.
+    """Serves a dashboard page, streams the monitor's values to it, accepts
+    updates posted to ``/update`` and returns the current values from
+    ``/values`` (JSON).
 
     Args:
         page: your dashboard HTML file; a generic page is used if omitted.
@@ -108,6 +111,7 @@ class WebDashboard:
         app.router.add_get("/", self._index)
         app.router.add_get("/ws", self._websocket)
         app.router.add_post("/update", self._receive)
+        app.router.add_get("/values", self._values)
         app.router.add_static("/_app_monitor/", ASSETS)
         if self.static_dir:
             app.router.add_static("/static/", self.static_dir)
@@ -193,6 +197,9 @@ class WebDashboard:
             raise web.HTTPBadRequest(text=f"{error}\n") from None
         request.app[MONITOR_KEY].update(*updates)
         return web.Response(status=204)
+
+    async def _values(self, request: web.Request) -> web.Response:
+        return web.json_response(request.app[MONITOR_KEY].snapshot())
 
     def _snapshot(self, monitor: Monitor) -> dict[str, Any]:
         return {

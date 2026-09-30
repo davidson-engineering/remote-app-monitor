@@ -48,7 +48,7 @@ dev = [
 version = { attr = "app_monitor.__version__" }
 
 [tool.setuptools.package-data]
-app_monitor = ["web/static/**/*"]
+app_monitor = ["web/static/**/*", "GUIDE.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
