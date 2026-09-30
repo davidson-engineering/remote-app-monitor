@@ -112,10 +112,14 @@ class TextFormat:
 
 @dataclass(frozen=True)
 class Style:
-    """ANSI colors and weight for terminal output. Ignored by the web dashboard."""
+    """ANSI colors and weight for terminal output. Ignored by the web dashboard.
 
-    fg: str | None = None
-    bg: str | None = None
+    Colors are names (``"red"``, ``"cyan"``, ...) or xterm's 256-color numbers
+    (``214`` is amber), which every modern terminal draws.
+    """
+
+    fg: str | int | None = None
+    bg: str | int | None = None
     bold: bool = False
     dim: bool = False
     _prefix: str = field(init=False, repr=False, compare=False)
@@ -127,9 +131,9 @@ class Style:
         if self.dim:
             codes.append("2")
         if self.fg is not None:
-            codes.append(str(30 + _color(self.fg)))
+            codes.append(_color_code(self.fg, 30))
         if self.bg is not None:
-            codes.append(str(40 + _color(self.bg)))
+            codes.append(_color_code(self.bg, 40))
         object.__setattr__(self, "_prefix", f"\x1b[{';'.join(codes)}m" if codes else "")
 
     def apply(self, text: str) -> str:
@@ -148,6 +152,15 @@ def boxed(text: str, width: int, title: str = "") -> str:
     body = [f"│ {fit(line, inner)} │" for line in text.split("\n")]
     bottom = "└" + "─" * (width - 2) + "┘"
     return "\n".join([top, *body, bottom])
+
+
+def _color_code(color: str | int, base: int) -> str:
+    """The SGR code for a foreground (``base`` 30) or background (40) color."""
+    if isinstance(color, int):
+        if not 0 <= color <= 255:
+            raise ValueError(f"color numbers go from 0 to 255, not {color}")
+        return f"{base + 8};5;{color}"
+    return str(base + _color(color))
 
 
 def _color(name: str) -> int:

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import shutil
 import sys
+from collections.abc import Callable
 from typing import TextIO
 
 from .elements import Element
-from .formatting import Style, boxed
+from .formatting import Style, boxed, visible_len
 from .monitor import Group, Monitor
+
+Screen = Callable[[Monitor, int, int], str]
+"""``screen(monitor, width, height)``: a whole frame, laid out by you."""
 
 ALT_SCREEN_ON = "\x1b[?1049h"
 ALT_SCREEN_OFF = "\x1b[?1049l"
@@ -26,23 +31,43 @@ class TerminalDisplay:
     """Draws the monitor in the terminal, redrawing only when something changed
     and at most ``fps`` times per second.
 
+    By default every element is listed, ``width`` columns wide. For a layout
+    of your own, the terminal's counterpart of a custom web page, pass
+    ``screen``: a function of ``(monitor, width, height)`` that returns the
+    whole frame, styled with :class:`Style` if you like, for a terminal of
+    that size. Read values from the monitor's elements (``monitor["rate"]
+    .text``). A screen is also redrawn at least once a second, so it can show
+    time, e.g. how old values are (:meth:`Monitor.ages`).
+
     Uses the terminal's alternate screen, so the previous contents come back
     when it stops; the final frame is then printed so it stays in view.
     Anything else printed to the same terminal (e.g. logging to stdout) will be
     overdrawn; send logs to a file instead.
     """
 
+    refresh = 1.0  # with a screen: seconds between redraws when nothing changes
+
     def __init__(
-        self, *, width: int = 60, fps: float = 30, stream: TextIO | None = None
+        self,
+        *,
+        width: int = 60,
+        fps: float = 30,
+        stream: TextIO | None = None,
+        screen: Screen | None = None,
     ):
         if fps <= 0:
             raise ValueError("fps must be positive")
         self.width = width
         self.fps = fps
         self.stream = stream
+        self.screen = screen
 
     def render(self, monitor: Monitor) -> str:
         """The full frame as text (without terminal control codes)."""
+        if self.screen is not None:
+            size = shutil.get_terminal_size()
+            frame = self.screen(monitor, size.columns, size.lines)
+            return "\n".join(frame.split("\n")[: size.lines])  # never scroll
         width = min(self.width, shutil.get_terminal_size().columns)
         blocks = []
         for item in monitor.layout:
@@ -60,14 +85,35 @@ class TerminalDisplay:
         try:
             version = -1
             while True:
-                version = await monitor.wait_for_change(version)
-                frame = self.render(monitor).replace("\n", CLEAR_LINE_END + "\n")
-                out.write(CURSOR_HOME + frame + CLEAR_LINE_END + CLEAR_SCREEN_END)
+                if self.screen is None:
+                    version = await monitor.wait_for_change(version)
+                else:
+                    with contextlib.suppress(TimeoutError):
+                        version = await asyncio.wait_for(
+                            monitor.wait_for_change(version), self.refresh
+                        )
+                out.write(CURSOR_HOME + self._frame(monitor))
                 out.flush()
                 await asyncio.sleep(1 / self.fps)
         finally:
             out.write(CURSOR_SHOW + ALT_SCREEN_OFF + self.render(monitor) + "\n")
             out.flush()
+
+    def _frame(self, monitor: Monitor) -> str:
+        """The frame, with codes clearing what the last one left behind.
+
+        A line that fills the width leaves the cursor on its last character,
+        where clearing would erase it; those need no clearing anyway.
+        """
+        size = shutil.get_terminal_size()
+        lines = self.render(monitor).split("\n")
+        frame = "\n".join(
+            line + CLEAR_LINE_END if visible_len(line) < size.columns else line
+            for line in lines
+        )
+        if len(lines) < size.lines:  # clear any longer frame's leftovers below
+            frame += "\n" + CLEAR_SCREEN_END
+        return frame
 
 
 def _render_element(element: Element, width: int) -> str:

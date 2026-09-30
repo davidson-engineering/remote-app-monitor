@@ -48,6 +48,38 @@ def test_terminal_width_follows_a_narrow_terminal(monkeypatch):
     assert len(frame[1]) == 30
 
 
+def test_terminal_screen_draws_the_whole_terminal(monkeypatch):
+    """A screen function lays out the frame itself, like a custom web page."""
+    monkeypatch.setattr("shutil.get_terminal_size", lambda: os.terminal_size((100, 3)))
+    calls = []
+
+    def screen(monitor, width, height):
+        calls.append((width, height))
+        return "\n".join(f"line {i}: {monitor['speed'].text}" for i in range(5))
+
+    monitor = make_monitor()
+    monitor.set("speed", 7)
+    frame = TerminalDisplay(screen=screen).render(monitor)
+    assert calls == [(100, 3)]  # the whole terminal, not the 60-column default
+    assert frame.split("\n") == ["line 0: 7", "line 1: 7", "line 2: 7"]  # fits
+
+
+async def test_terminal_screen_redraws_without_changes():
+    """A screen may show time (how old data is), so it's redrawn regularly."""
+    frames = []
+    display = TerminalDisplay(
+        screen=lambda monitor, width, height: str(len(frames)), stream=io.StringIO()
+    )
+    display.refresh = 0.05
+    display.render = lambda monitor: frames.append(1) or "frame"
+    task = asyncio.create_task(display.run(make_monitor()))
+    await asyncio.sleep(0.3)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert len(frames) >= 4  # nothing changed, yet it kept drawing
+
+
 async def test_terminal_redraws_on_change_and_restores_screen():
     monitor = make_monitor()
     out = io.StringIO()
