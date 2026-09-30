@@ -6,7 +6,9 @@ the same as
 
     curl -d 'weather.wind=12.4 weather.gust=17.9 weather.direction=240' http://127.0.0.1:8080/update
 
-launch_control.py starts it; to run it yourself: python weather.py http://127.0.0.1:8080
+The demo starts it; to run it yourself:
+
+    python -m sightglass.launch.weather http://127.0.0.1:8080
 """
 
 import argparse

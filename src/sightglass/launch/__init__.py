@@ -1,10 +1,10 @@
 """Launch control: a rocket launch, live, fed by three separate programs.
 
-    uv run --all-extras examples/launch_control/launch_control.py
+    sightglass --demo launch --open
 
-The page, launch_control.html, is plain HTML and CSS: every value on it is
-bound with a data-bind attribute, and its gauges, tanks and lamps are drawn
-by CSS from those values. Three programs feed it, each in a different way:
+The page, page.html, is plain HTML and CSS: every value on it is bound with
+a data-bind attribute, and its gauges, tanks and lamps are drawn by CSS from
+those values. Three programs feed it, each in a different way:
 
 - the vehicle's telemetry, 10 frames a second: a source inside this program
   (vehicle.py, simulated; SerialSource or ZmqSource would read a real one)
@@ -13,18 +13,14 @@ by CSS from those values. Three programs feed it, each in a different way:
 - the weather mast (weather.py): plain HTTP posts, no library at all
 
 Stop a feeder and its part of the page says it has gone quiet. The launch
-repeats every five minutes or so; stop with Ctrl+C.
+repeats every five minutes or so; stop with Ctrl+C. To build something
+similar, copy this folder: it uses only sightglass's public API.
 """
 
-import argparse
 import multiprocessing
+import sys
 import time
 from pathlib import Path
-
-import ground
-import mission
-import weather
-from vehicle import ENGINES, EVENTS, Vehicle
 
 from sightglass import (
     IndicatorLamp,
@@ -39,6 +35,10 @@ from sightglass import (
     TextFormat,
     WebDashboard,
 )
+
+from . import ground, weather
+from .mission import COUNTDOWN
+from .vehicle import ENGINES, EVENTS, Vehicle
 
 HERE = Path(__file__).parent
 
@@ -97,29 +97,22 @@ def build_monitor() -> Monitor:
     return monitor
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument(
-        "--host", default="127.0.0.1", help="use 0.0.0.0 to share on your network"
-    )
-    parser.add_argument("--port", type=int, default=0, help="(default: any free one)")
-    parser.add_argument(
-        "--at",
-        type=float,
-        default=-mission.COUNTDOWN,
-        metavar="SECONDS",
-        help="start this long after liftoff (default: at the start of the countdown)",
-    )
-    args = parser.parse_args()
-
+def run(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8080,
+    at: float = -COUNTDOWN,
+    open_browser: bool = False,
+) -> None:
+    """Serve the launch until Ctrl+C, starting ``at`` seconds from liftoff."""
     # When the first countdown started; every feeder works from this.
-    started = time.time() - mission.COUNTDOWN - args.at
+    started = time.time() - COUNTDOWN - at
     web = WebDashboard(
-        HERE / "launch_control.html",
+        HERE / "page.html",
         static_dir=HERE / "static",
-        host=args.host,
-        port=args.port,
-        open_browser=True,
+        host=host,
+        port=port,
+        open_browser=open_browser,
     )
     monitor = build_monitor()
     monitor.start(sources=[SimulatedSource(Vehicle(started), rate=10)], outputs=[web])
@@ -135,6 +128,7 @@ def main() -> None:
         f"Ground systems (process {feeders[0].pid}) and the weather mast "
         f"(process {feeders[1].pid}) report to it; stop either to see its part "
         "of the page go quiet. Ctrl+C stops everything.",
+        file=sys.stderr,
         flush=True,
     )
     try:
@@ -143,7 +137,3 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     monitor.stop()
-
-
-if __name__ == "__main__":
-    main()

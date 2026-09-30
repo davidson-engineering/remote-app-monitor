@@ -15,7 +15,7 @@ supported Python version, except the browser tests (`-m browser`), which run
 once, in Chromium on Linux: the page's JavaScript is the same everywhere.
 
 `uv run --all-extras python docs/screenshot.py` retakes the README's
-screenshot after a change to the launch control example.
+screenshot after a change to the launch demo (`src/sightglass/launch/`).
 
 ## Releasing
 

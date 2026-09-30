@@ -5,7 +5,7 @@ a vertical climb, a gravity turn, throttling back through maximum aerodynamic
 pressure (max-Q) and to stay under 4.5 g, into a 200 km orbit. Vehicle(...)
 then reads the flight at any moment of the launch cycle.
 
-The dashboard runs it as a SimulatedSource. A real vehicle's downlink would
+The demo's dashboard runs it as a SimulatedSource. A real vehicle's downlink would
 arrive through SerialSource (a radio modem) or ZmqSource (a telemetry
 decoder) with the same ids, and the page wouldn't change.
 """
@@ -13,7 +13,7 @@ decoder) with the same ids, and the page wouldn't change.
 import math
 from typing import Any, NamedTuple
 
-from mission import (
+from .mission import (
     FAIRING,
     MECO,
     SECO,

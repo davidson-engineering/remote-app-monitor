@@ -49,7 +49,7 @@ dev = [
 version = { attr = "sightglass.__version__" }
 
 [tool.setuptools.package-data]
-sightglass = ["web/static/**/*", "GUIDE.md"]
+sightglass = ["web/static/**/*", "GUIDE.md", "launch/*.html", "launch/static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -2,9 +2,10 @@
 
 A separate program that reports to the dashboard with Client, which needs
 nothing but the standard library, as launch control software running on
-another machine would. launch_control.py starts it; to run it yourself:
+another machine would. The demo starts it; to run it yourself, give it the
+dashboard's address and when the countdown started (a time.time() value):
 
-    python ground.py http://127.0.0.1:8080 <countdown start, as time.time()>
+    python -m sightglass.launch.ground http://127.0.0.1:8080 1790000000.0
 """
 
 import argparse
@@ -12,9 +13,9 @@ import math
 import multiprocessing
 import time
 
-from mission import MECO, SECO, SEPARATION, clock, log_start, mission_time, stamp
-
 from sightglass import Client
+
+from .mission import MECO, SECO, SEPARATION, clock, log_start, mission_time, stamp
 
 # Each console answers the launch director's poll, one a second.
 POLL = {
