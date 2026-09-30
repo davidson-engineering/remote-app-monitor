@@ -1,12 +1,12 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor",
+#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
 # ]
 # ///
 """Hello, dashboard: live values from a Python program, with nothing to set up.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/01_hello.py
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/01_hello.py
 
 A pretend batch job reports what it's doing. Nothing is declared: each value
 gets a display the first time it is set. Stop with Ctrl+C.
@@ -16,7 +16,7 @@ import itertools
 import random
 import time
 
-from app_monitor import WebDashboard, start
+from sightglass import WebDashboard, start
 
 # port=0: any free port, so examples can run side by side (the address is
 # printed, and the page opens by itself).

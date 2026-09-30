@@ -1,5 +1,5 @@
 /*
- * Segment-display (LCD/VFD) fields and indicator LEDs for app_monitor dashboards.
+ * Segment-display (LCD/VFD) fields and indicator LEDs for sightglass dashboards.
  *
  *   <div class="lcd">
  *     <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_x"></span></span>

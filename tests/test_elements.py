@@ -1,6 +1,6 @@
 import pytest
 
-from app_monitor import (
+from sightglass import (
     Coordinate,
     IndicatorLamp,
     LogMonitor,
@@ -12,7 +12,7 @@ from app_monitor import (
     TextElement,
     TextFormat,
 )
-from app_monitor.formatting import visible_len
+from sightglass.formatting import visible_len
 
 
 def test_label_defaults_to_last_id_segment():
@@ -209,7 +209,7 @@ def test_sparkline_keeps_recent_history():
 
 def test_sparkline_interval_keeps_one_point_per_interval(monkeypatch):
     now = [0.0]
-    monkeypatch.setattr("app_monitor.elements.monotonic", lambda: now[0])
+    monkeypatch.setattr("sightglass.elements.monotonic", lambda: now[0])
     spark = Sparkline("altitude", points=3, interval=1)
     for t, value in [(0, 1), (0.4, 2), (0.9, 3), (1.0, 4), (1.5, 5), (2.2, 6)]:
         now[0] = t

@@ -14,7 +14,7 @@ import time
 
 from mission import MECO, SECO, SEPARATION, clock, log_start, mission_time, stamp
 
-from app_monitor import Client
+from sightglass import Client
 
 # Each console answers the launch director's poll, one a second.
 POLL = {

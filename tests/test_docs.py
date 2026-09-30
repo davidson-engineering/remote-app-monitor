@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-import app_monitor
-import app_monitor.client
-from app_monitor.cli import guide, parser
+import sightglass
+import sightglass.client
+from sightglass.cli import guide, parser
 
 ROOT = Path(__file__).parent.parent
 DOCS = {
     "README.md": ROOT / "README.md",
-    "GUIDE.md": ROOT / "src" / "app_monitor" / "GUIDE.md",
+    "GUIDE.md": ROOT / "src" / "sightglass" / "GUIDE.md",
     "examples/README.md": ROOT / "examples" / "README.md",
 }
 EXAMPLES = sorted((ROOT / "examples").rglob("*.py"))
@@ -31,11 +31,9 @@ def check_imports(name: str, source: str) -> None:
         if (
             isinstance(node, ast.ImportFrom)
             and node.module
-            and (node.module.startswith("app_monitor"))
+            and (node.module.startswith("sightglass"))
         ):
-            module = (
-                app_monitor.client if node.module.endswith("client") else app_monitor
-            )
+            module = sightglass.client if node.module.endswith("client") else sightglass
             for alias in node.names:
                 assert hasattr(module, alias.name), f"{name}: {alias.name}"
 
@@ -50,12 +48,10 @@ def test_python_snippets_compile_and_import_real_names(name):
             if (
                 isinstance(node, ast.ImportFrom)
                 and node.module
-                and (node.module.startswith("app_monitor"))
+                and (node.module.startswith("sightglass"))
             ):
                 module = (
-                    app_monitor.client
-                    if node.module.endswith("client")
-                    else app_monitor
+                    sightglass.client if node.module.endswith("client") else sightglass
                 )
                 for alias in node.names:
                     assert hasattr(module, alias.name), f"{name}: {alias.name}"
@@ -65,8 +61,11 @@ def test_python_snippets_compile_and_import_real_names(name):
 def test_cli_flags_in_docs_exist(name):
     known = {option for action in parser()._actions for option in action.option_strings}
     text = DOCS[name].read_text("utf-8")
-    # The command, not the package name inside "remote-app-monitor[...]".
-    mentioned = set(re.findall(r"(?<![\w-])app-monitor\b[^\n`\"|]*", text))
+    # The command, followed by a space or nothing: not the package or
+    # repository of the same name ("sightglass[web]", ".../sightglass/main/").
+    mentioned = set(
+        re.findall(r"(?<![\w-])sightglass(?=[ \t]|$)[^\n`\"|]*", text, re.M)
+    )
     flags = {
         flag for line in mentioned for flag in re.findall(r"(--[a-z][a-z-]+)", line)
     }
@@ -75,7 +74,7 @@ def test_cli_flags_in_docs_exist(name):
 
 def test_guide_command_prints_the_shipped_guide():
     result = subprocess.run(
-        [sys.executable, "-m", "app_monitor", "--guide"],
+        [sys.executable, "-m", "sightglass", "--guide"],
         capture_output=True,
         text=True,
         check=True,
@@ -84,7 +83,7 @@ def test_guide_command_prints_the_shipped_guide():
 
 
 def test_claude_md_imports_the_guide():
-    assert "@src/app_monitor/GUIDE.md" in (ROOT / "CLAUDE.md").read_text("utf-8")
+    assert "@src/sightglass/GUIDE.md" in (ROOT / "CLAUDE.md").read_text("utf-8")
 
 
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda p: p.name)
@@ -104,7 +103,7 @@ def test_self_contained_examples_declare_their_dependencies(path):
 
 def test_example_run_commands_point_at_files_that_exist():
     text = DOCS["examples/README.md"].read_text("utf-8")
-    base = "https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/"
+    base = "https://raw.githubusercontent.com/davidson-engineering/sightglass/main/"
     linked = re.findall(re.escape(base) + r"([\w/.]+)", text)
     assert linked
     for relative in linked:

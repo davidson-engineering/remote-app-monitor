@@ -1,4 +1,4 @@
-"""The browser client (app_monitor.js) in a real browser: pages stay bound to
+"""The browser client (sightglass.js) in a real browser: pages stay bound to
 live values exactly as documented.
 
 Needs Chromium once: ``uv run playwright install chromium``. Uses Playwright's
@@ -10,7 +10,7 @@ import asyncio
 import pytest
 from playwright.async_api import async_playwright, expect
 
-from app_monitor import (
+from sightglass import (
     IndicatorLamp,
     Monitor,
     ProgressBar,
@@ -46,7 +46,7 @@ def serve(tmp_path):
             page.write_text(
                 f"<!doctype html><html><head><style>{options.pop('css', '')}"
                 f"</style></head><body>{body}"
-                '<script src="/_app_monitor/app_monitor.js"></script></body></html>'
+                '<script src="/_sightglass/sightglass.js"></script></body></html>'
             )
         web = WebDashboard(page, port=0, announce=False, **options)
         started.append(monitor.start(outputs=[web]))

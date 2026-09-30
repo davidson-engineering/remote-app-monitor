@@ -1,12 +1,12 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "remote-app-monitor[serial,zmq] @ git+https://github.com/davidson-engineering/remote-app-monitor",
+#     "sightglass[serial,zmq] @ git+https://github.com/davidson-engineering/sightglass",
 # ]
 # ///
 """Terminal dashboard for a three-axis machine.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/terminal_axes.py --simulate
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/terminal_axes.py --simulate
 
     python examples/terminal_axes.py --simulate
     python examples/terminal_axes.py --zmq tcp://localhost:5556  # zmq_publisher.py
@@ -21,7 +21,7 @@ import argparse
 import logging
 import math
 
-from app_monitor import (
+from sightglass import (
     BinaryFrameDecoder,
     Coordinate,
     LogMonitor,

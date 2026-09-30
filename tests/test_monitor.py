@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from app_monitor import (
+from sightglass import (
     Group,
     IndicatorLamp,
     MachineState,
@@ -94,7 +94,7 @@ def test_new_elements_change_the_layout_version():
 
 def test_strict_monitor_rejects_unknown_ids_and_reports_once(caplog):
     monitor = make_monitor(strict=True)
-    with caplog.at_level(logging.WARNING, logger="app_monitor"):
+    with caplog.at_level(logging.WARNING, logger="sightglass"):
         monitor.update({"nope": 1, "X.velocity": "fast", "speed": "ok"})
         monitor.update({"nope": 2})
         monitor.update({"t.b.x": 1})
@@ -110,7 +110,7 @@ def test_strict_monitor_rejects_unknown_ids_and_reports_once(caplog):
 
 def test_element_limit_stops_runaway_creation(caplog):
     monitor = Monitor(max_elements=2)
-    with caplog.at_level(logging.WARNING, logger="app_monitor"):
+    with caplog.at_level(logging.WARNING, logger="sightglass"):
         monitor.update({"a": 1, "b": 2, "c": 3})
     assert len(monitor) == 2
     assert "max_elements" in caplog.text
@@ -119,7 +119,7 @@ def test_element_limit_stops_runaway_creation(caplog):
 def test_warnings_are_visible_without_logging_setup():
     """The library must not hide its warnings behind a NullHandler."""
     script = (
-        "from app_monitor import Monitor\nm = Monitor(strict=True)\nm.set('typo', 1)\n"
+        "from sightglass import Monitor\nm = Monitor(strict=True)\nm.set('typo', 1)\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True, check=True
@@ -144,7 +144,7 @@ def test_versions_track_what_changed():
 
 def test_ages_say_how_long_ago_each_element_was_updated(monkeypatch):
     now = [100.0]
-    monkeypatch.setattr("app_monitor.monitor.monotonic", lambda: now[0])
+    monkeypatch.setattr("sightglass.monitor.monotonic", lambda: now[0])
     monitor = make_monitor()
     monitor.update({"speed": 1})
     now[0] = 102.5
@@ -329,7 +329,7 @@ def test_monitor_is_a_context_manager():
 def test_serve_returns_quietly_on_ctrl_c():
     script = (
         "import os, signal, threading\n"
-        "from app_monitor import Monitor, SimulatedSource\n"
+        "from sightglass import Monitor, SimulatedSource\n"
         "threading.Timer(0.5, os.kill, (os.getpid(), signal.SIGINT)).start()\n"
         "Monitor().serve(sources=[SimulatedSource(lambda t: {'t': t})], outputs=[])\n"
         "print('returned')\n"

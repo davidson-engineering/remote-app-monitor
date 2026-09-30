@@ -1,8 +1,9 @@
-# Remote App Monitor
+# Sightglass
 
 Live dashboards for a running program, a microcontroller, or anything that
 can make an HTTP request. Send values by name and they appear in the browser
-(or the terminal) as they change.
+(or the terminal) as they change: a window onto a running system, like the
+sight glass on a tank.
 
 ![Launch control: a rocket launch shown live, with a countdown clock, gauges, engine lamps, propellant tanks, a go/no-go poll, weather and an event log](docs/launch-control.png)
 
@@ -14,7 +15,7 @@ drawn by CSS from the values; the page has no JavaScript of its own.
 - **One line to start.** `start()` serves a dashboard in the background and
   prints its address; `monitor.set("progress", 5)` works from any thread, and
   elements appear the first time you use them.
-- **No code needed.** Pipe a program into `app-monitor`, `curl` values to it,
+- **No code needed.** Pipe a program into `sightglass`, `curl` values to it,
   or point it at a serial port or ZeroMQ socket.
 - **Any language.** `POST /update` with JSON or `key=value` lines.
 - **Keeps up with fast devices.** Serial and ZeroMQ are read on background
@@ -32,16 +33,16 @@ drawn by CSS from the values; the page has no JavaScript of its own.
 Requires Python 3.11+.
 
 ```bash
-pip install "remote-app-monitor[web]"        # add serial, zmq, or use [all]
+pip install "sightglass[web]"        # add serial, zmq, or use [all]
 ```
 
 Until the first PyPI release, install from GitHub:
 
 ```bash
-pip install "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor"
+pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
-Try it: `app-monitor --demo`, then open the address it prints.
+Try it: `sightglass --demo`, then open the address it prints.
 
 ## Quick start
 
@@ -50,7 +51,7 @@ Try it: `app-monitor --demo`, then open the address it prints.
 ```python
 import time
 
-from app_monitor import start
+from sightglass import start
 
 monitor = start()  # prints "Dashboard: http://127.0.0.1:8080/"
 
@@ -70,22 +71,22 @@ The dashboard stops when your program exits, or call `monitor.stop()`.
 ```bash
 # Pipe a program: lines like "progress=5 status=running" or JSON objects
 # become values; everything else is printed as usual.
-my_program | app-monitor
+my_program | sightglass
 
 # Push values from anything: shell scripts, cron jobs, other languages.
-app-monitor &
+sightglass &
 curl -d 'temperature=21.5 status=ok' http://127.0.0.1:8080/update
 curl -d '{"job": {"progress": 5}}' http://127.0.0.1:8080/update
 curl http://127.0.0.1:8080/values     # what the dashboard shows, as JSON
 
 # Read a device.
-app-monitor --serial auto --csv temperature,humidity
-app-monitor --zmq tcp://localhost:5556
+sightglass --serial auto --csv temperature,humidity
+sightglass --zmq tcp://localhost:5556
 ```
 
-`app-monitor --help` lists every option, including `--terminal` to draw in the
+`sightglass --help` lists every option, including `--terminal` to draw in the
 terminal instead of the browser (its log messages then go to
-`app-monitor.log`).
+`sightglass.log`).
 
 ### From a separate Python program
 
@@ -93,7 +94,7 @@ The client uses only the standard library, so the program sending values
 doesn't need the dashboard's dependencies:
 
 ```python
-from app_monitor import Client
+from sightglass import Client
 
 dashboard = Client()  # http://127.0.0.1:8080
 dashboard.set("progress", 5)
@@ -104,7 +105,7 @@ Updates are sent in order in the background. If the dashboard isn't running
 yet they're kept and retried, and anything pending is sent when your program
 exits, so even a two-line script's values arrive. Pass `token=` if the
 dashboard was given one. For one message,
-`from app_monitor.client import send` and `send({"status": "done"})`.
+`from sightglass.client import send` and `send({"status": "done"})`.
 
 ## Choosing how values look
 
@@ -112,7 +113,7 @@ Declare elements for bars, charts, units and number formats. Anything you
 don't declare still appears as text.
 
 ```python
-from app_monitor import Monitor, ProgressBar, Sparkline, TextFormat
+from sightglass import Monitor, ProgressBar, Sparkline, TextFormat
 
 monitor = Monitor()
 monitor.add(
@@ -160,7 +161,7 @@ monitor can also be used as a context manager: `with monitor.start(): ...`.
 ## Devices and other sources
 
 ```python
-from app_monitor import CsvDecoder, Monitor, SerialSource
+from sightglass import CsvDecoder, Monitor, SerialSource
 
 monitor = Monitor()
 # The device prints one line per sample: "21.5,48,OK"
@@ -175,7 +176,7 @@ monitor.serve(sources=[device])
 | `SerialSource(port, baudrate, decoder=...)` | a serial port (`"auto"` picks the first USB device); waits for it and reconnects |
 | `ZmqSource(endpoint, pattern="sub")` | ZeroMQ PUB/SUB (a publisher that binds `endpoint`) |
 | `ZmqSource(endpoint, pattern="pull")` | ZeroMQ PUSH/PULL: binds `endpoint`; unlike PUB/SUB, nothing sent before the monitor starts is lost |
-| `StdinSource()` | piped standard input, as `app-monitor` does |
+| `StdinSource()` | piped standard input, as `sightglass` does |
 | `SimulatedSource(fn, rate)` | `fn(seconds)` called `rate` times a second, for demos and tests |
 
 | Decoder | Wire format |
@@ -207,10 +208,10 @@ Corrupt frames are skipped and decoding resumes at the next `0xAA`.
 serves `page` (or the generic page), streams values over a WebSocket, accepts
 `POST /update` and returns the current values as JSON from `GET /values`. `stale_after=2` dims values when no data has arrived
 for 2 seconds, for sources that should update continuously. Your own page
-loads `/_app_monitor/app_monitor.js` and marks up elements:
+loads `/_sightglass/sightglass.js` and marks up elements:
 
 ```html
-<link rel="stylesheet" href="/_app_monitor/panel.css">
+<link rel="stylesheet" href="/_sightglass/panel.css">
 
 <span data-bind="temperature"></span>                                  <!-- text -->
 <div class="led" data-bind="machine.estop" data-mode="state"></div>    <!-- data-state="on"/"off" -->
@@ -224,7 +225,7 @@ loads `/_app_monitor/app_monitor.js` and marks up elements:
   <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_x"></span></span>
 </div>
 
-<script src="/_app_monitor/app_monitor.js"></script>
+<script src="/_sightglass/sightglass.js"></script>
 ```
 
 `data-mode="var"` sets the CSS variable `--value` to the number, so CSS alone
@@ -261,7 +262,7 @@ install beyond [uv](https://docs.astral.sh/uv/):
 
 | Example | Shows | |
 | --- | --- | --- |
-| Demo | every kind of display | `uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --demo --open` |
+| Demo | every kind of display | `uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo --open` |
 | Launch control | the page above: a custom panel fed by three programs | [run](examples/README.md#the-showcase-launch-control) |
 | 1. Hello | a Python program with `start()` and `set()` | [run](examples/README.md#1-hello-dashboard) |
 | 2. System monitor | this computer, live: charts, bars, a table | [run](examples/README.md#2-system-monitor) |
@@ -292,13 +293,13 @@ install beyond [uv](https://docs.astral.sh/uv/):
 
 ## For AI coding agents
 
-`app-monitor --guide` prints a concise, recipe-first guide to building and
+`sightglass --guide` prints a concise, recipe-first guide to building and
 deploying monitors, written for coding agents (it is also imported by this
 repository's `CLAUDE.md`). To make it discoverable in another project, add a
 line like this to that project's `CLAUDE.md` or `AGENTS.md`:
 
 ```markdown
-- Live dashboards for this project: `remote-app-monitor`; run `app-monitor --guide` before building one.
+- Live dashboards for this project: `sightglass`; run `sightglass --guide` before building one.
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
@@ -306,6 +307,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
 ## License
 
 MIT. The bundled DSEG fonts are © keshikan, licensed under the SIL Open Font
-License 1.1 (`src/app_monitor/web/static/fonts/DSEG-LICENSE.txt`). The launch
+License 1.1 (`src/sightglass/web/static/fonts/DSEG-LICENSE.txt`). The launch
 control example's B612 fonts are © The B612 Project Authors, under the same
 license (`examples/launch_control/static/fonts/B612-LICENSE.txt`).

@@ -2,7 +2,7 @@
 
 Quickest start, from inside a program::
 
-    from app_monitor import start
+    from sightglass import start
 
     monitor = start()                  # prints the dashboard's address
     monitor.set("progress", 0.5)       # from any thread; elements appear as used
@@ -10,7 +10,7 @@ Quickest start, from inside a program::
 A :class:`Monitor` holds elements (text, bars, lamps, charts, tables, ...).
 Sources (serial, ZeroMQ, stdin, simulated) and HTTP posts feed it updates
 keyed by element id, and outputs (web dashboard, terminal) display it. Other
-programs can send values with :class:`~app_monitor.client.Client`, or with
+programs can send values with :class:`~sightglass.client.Client`, or with
 ``curl -d 'progress=5' http://127.0.0.1:8080/update``.
 """
 
@@ -70,7 +70,7 @@ def __getattr__(name: str) -> Any:
     except ImportError as error:
         raise ImportError(
             f"{name} needs an optional dependency: "
-            f"pip install 'remote-app-monitor[{extra}]' ({error})"
+            f"pip install 'sightglass[{extra}]' ({error})"
         ) from error
     globals()[name] = value
     return value

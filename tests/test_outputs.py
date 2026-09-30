@@ -5,7 +5,7 @@ import os
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from app_monitor import (
+from sightglass import (
     MachineState,
     Monitor,
     ProgressBar,
@@ -84,9 +84,9 @@ async def client():
 async def test_web_serves_page_and_assets(client):
     page = await client.get("/")
     assert page.status == 200
-    assert "/_app_monitor/app_monitor.js" in await page.text()
-    for asset in ["app_monitor.js", "panel.css", "fonts/DSEG14Modern-Regular.ttf"]:
-        response = await client.get(f"/_app_monitor/{asset}")
+    assert "/_sightglass/sightglass.js" in await page.text()
+    for asset in ["sightglass.js", "panel.css", "fonts/DSEG14Modern-Regular.ttf"]:
+        response = await client.get(f"/_sightglass/{asset}")
         assert response.status == 200, asset
         assert response.headers["Cache-Control"] == "no-cache"
 
@@ -207,7 +207,7 @@ async def test_a_program_that_exits_leaves_its_final_values_on_the_page():
 
     script = (
         "import sys\n"
-        "from app_monitor import WebDashboard, start\n"
+        "from sightglass import WebDashboard, start\n"
         "monitor = start(outputs=[WebDashboard(port=0)])\n"
         "sys.stdin.readline()  # wait for the test's page to connect\n"
         "for i in range(1, 1001):\n"
@@ -232,7 +232,7 @@ async def test_a_program_that_exits_leaves_its_final_values_on_the_page():
 
 
 def test_terminal_labels_every_row_and_heads_blocks(monkeypatch):
-    from app_monitor import LogMonitor, Table
+    from sightglass import LogMonitor, Table
 
     monkeypatch.setattr("shutil.get_terminal_size", lambda: os.terminal_size((80, 40)))
     monitor = Monitor()
@@ -262,7 +262,7 @@ async def test_web_returns_current_values_as_json(client):
 def test_open_browser_opens_the_dashboard_once_it_is_up(monkeypatch):
     opened = []
     monkeypatch.setattr("webbrowser.open", opened.append)
-    monkeypatch.setattr("app_monitor.web._has_display", lambda: True)
+    monkeypatch.setattr("sightglass.web._has_display", lambda: True)
     web = WebDashboard(port=0, announce=False, open_browser=True)
     monitor = Monitor().start(outputs=[web])
     monitor.stop()
@@ -280,7 +280,7 @@ def test_open_browser_opens_the_dashboard_once_it_is_up(monkeypatch):
     ],
 )
 def test_browser_is_only_opened_with_a_display(monkeypatch, platform, env, expected):
-    from app_monitor.web import _has_display
+    from sightglass.web import _has_display
 
     monkeypatch.setattr("sys.platform", platform)
     for name in ("DISPLAY", "WAYLAND_DISPLAY"):

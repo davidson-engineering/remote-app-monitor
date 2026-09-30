@@ -1,6 +1,6 @@
 """The weather mast at the pad: wind, gusts and temperature, once a second.
 
-This program doesn't use app_monitor at all: it posts plain text to the
+This program doesn't use sightglass at all: it posts plain text to the
 dashboard's /update address, as any language or device could. Each post is
 the same as
 

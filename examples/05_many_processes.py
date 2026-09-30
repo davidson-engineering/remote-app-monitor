@@ -1,12 +1,12 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor",
+#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
 # ]
 # ///
 """Many processes, one dashboard: workers report with the HTTP client.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/05_many_processes.py
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/05_many_processes.py
 
 The main process serves the dashboard; four worker processes send their
 progress with `Client`, which needs nothing but the standard library (in a
@@ -18,7 +18,7 @@ import multiprocessing
 import random
 import time
 
-from app_monitor import (
+from sightglass import (
     Client,
     LogMonitor,
     Monitor,

@@ -1,6 +1,6 @@
 import pytest
 
-from app_monitor.formatting import Style, TextFormat, boxed, fit, visible_len
+from sightglass.formatting import Style, TextFormat, boxed, fit, visible_len
 
 
 @pytest.mark.parametrize(

@@ -3,8 +3,8 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "remote-app-monitor"
-description = "Live web and terminal dashboards for values streamed from serial devices and ZeroMQ."
+name = "sightglass"
+description = "Live dashboards for a running program, a device, or anything that can make an HTTP request."
 dynamic = ["version"]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,13 +28,13 @@ dependencies = []
 serial = ["pyserial>=3.5"]
 zmq = ["pyzmq>=26"]
 web = ["aiohttp>=3.10"]
-all = ["remote-app-monitor[serial,zmq,web]"]
+all = ["sightglass[serial,zmq,web]"]
 
 [project.scripts]
-app-monitor = "app_monitor.cli:main"
+sightglass = "sightglass.cli:main"
 
 [project.urls]
-Repository = "https://github.com/davidson-engineering/remote-app-monitor"
+Repository = "https://github.com/davidson-engineering/sightglass"
 
 [dependency-groups]
 dev = [
@@ -46,10 +46,10 @@ dev = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "app_monitor.__version__" }
+version = { attr = "sightglass.__version__" }
 
 [tool.setuptools.package-data]
-app_monitor = ["web/static/**/*", "GUIDE.md"]
+sightglass = ["web/static/**/*", "GUIDE.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -63,7 +63,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["app_monitor"]
+source = ["sightglass"]
 
 [tool.coverage.report]
 show_missing = true
