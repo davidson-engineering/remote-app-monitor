@@ -95,6 +95,8 @@ async def snapshot(url):
 
 def stop(process):
     process.terminate()
+    if process.stdin is not None and process.stdin.closed:
+        process.stdin = None  # Python < 3.13's communicate() chokes on it
     return process.communicate(timeout=10)
 
 
