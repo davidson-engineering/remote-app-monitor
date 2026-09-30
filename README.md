@@ -241,21 +241,21 @@ authentication.
 
 ## Examples
 
-These live in the repository (`git clone` it, then `pip install -e ".[all]"`):
+[examples/](examples/README.md) is a gallery where each example shows one way
+to feed a dashboard and runs with a single command, with nothing to clone or
+install beyond [uv](https://docs.astral.sh/uv/):
 
-```bash
-python examples/robot_dashboard/dashboard.py --simulate    # the panel above
-python examples/zmq_publisher.py &
-python examples/terminal_axes.py --zmq tcp://localhost:5556
-```
-
-No hardware? `examples/fake_device.py` creates a virtual serial port (macOS
-and Linux) and streams to it, so you can exercise the real serial path:
-
-```bash
-python examples/fake_device.py              # prints e.g. /dev/ttys012
-python examples/robot_dashboard/dashboard.py --port /dev/ttys012
-```
+| Example | Shows | |
+| --- | --- | --- |
+| Demo | every kind of display | `uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --demo --open` |
+| 1. Hello | a Python program with `start()` and `set()` | [run](examples/README.md#1-hello-dashboard) |
+| 2. System monitor | this computer, live: charts, bars, a table | [run](examples/README.md#2-system-monitor) |
+| 3. From the shell | any language, over HTTP with curl | [run](examples/README.md#3-from-the-shell) |
+| 4. Pipe | a program's printed output | [run](examples/README.md#4-pipe-a-programs-output) |
+| 5. Many processes | several programs, one dashboard, with `Client` | [run](examples/README.md#5-many-processes-one-dashboard) |
+| 6. Docker | deployed as a service, fed over the network | [run](examples/README.md#6-deploy-with-docker) |
+| 7. Terminal | drawn in the terminal | [run](examples/README.md#7-in-the-terminal) |
+| 8. Custom panel | the segment-display panel above, over serial | [run](examples/README.md#8-a-custom-panel-and-a-serial-device) |
 
 ## Extending
 

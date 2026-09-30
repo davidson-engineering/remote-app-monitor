@@ -1,4 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "remote-app-monitor[serial,zmq] @ git+https://github.com/davidson-engineering/remote-app-monitor",
+# ]
+# ///
 """Terminal dashboard for a three-axis machine.
+
+    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/terminal_axes.py --simulate
 
     python examples/terminal_axes.py --simulate
     python examples/terminal_axes.py --zmq tcp://localhost:5556  # zmq_publisher.py

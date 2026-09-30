@@ -168,7 +168,7 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 | To show | Element | Update with |
 | --- | --- | --- |
 | a value or message | `TextElement(id, units="°C", format=TextFormat(precision=1))` | anything |
-| a trend | `Sparkline(id, points=60)` | numbers |
+| a trend | `Sparkline(id, points=60, scale=1 / 1024, units="KB/s")` | numbers |
 | progress | `ProgressBar(id, total=100)` | a number |
 | a reading within limits | `RangeBar(id, min_value=0, max_value=100, units="mm")` | a number |
 | on/off | `IndicatorLamp(id)` | bool, 1/0, on/off |
@@ -182,6 +182,8 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 For a branded or hardware-style panel, write plain HTML and bind elements by
 id; no JavaScript is needed. The repository's
 `examples/robot_dashboard/` is a complete example (segment displays, LEDs).
+The repository's `examples/README.md` has a runnable example of each route
+in this guide (one command each), plus a Docker deployment.
 
 ```html
 <link rel="stylesheet" href="/_app_monitor/panel.css">
