@@ -76,7 +76,7 @@ monitor.add(
     )
 )
 monitor.start(
-    outputs=[WebDashboard(title=f"{socket.gethostname()}", open_browser=True)]
+    outputs=[WebDashboard(title=socket.gethostname(), port=0, open_browser=True)]
 )
 
 

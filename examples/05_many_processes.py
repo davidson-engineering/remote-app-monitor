@@ -62,8 +62,8 @@ if __name__ == "__main__":
             ],
         )
     monitor.add(LogMonitor("log", label="Events", lines=8, timestamp=True))
-    web = WebDashboard(title="Workers", open_browser=True)
-    monitor.start(outputs=[web])
+    web = WebDashboard(title="Workers", port=0, open_browser=True)  # any free port
+    monitor.start(outputs=[web])  # web.url now has the port that was picked
 
     workers = [
         multiprocessing.Process(target=work, args=(number, web.url), daemon=True)
