@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from app_monitor import LogMonitor, Monitor, WebDashboard
-from app_monitor.client import Client, send
+from sightglass import LogMonitor, Monitor, WebDashboard
+from sightglass.client import Client, send
 
 
 @pytest.fixture
@@ -90,7 +90,7 @@ def test_client_drops_updates_the_dashboard_rejects(caplog):
 def test_short_script_delivers_on_exit(dashboard):
     """The ZeroMQ PUB/SUB route lost these messages entirely."""
     script = (
-        "from app_monitor.client import Client\n"
+        "from sightglass.client import Client\n"
         f"Client({dashboard.url!r}).set('status', 'quick script ran')\n"
     )
     subprocess.run([sys.executable, "-c", script], check=True, timeout=20)
@@ -101,7 +101,7 @@ def test_short_script_delivers_on_exit(dashboard):
 def test_client_needs_no_optional_dependencies():
     script = (
         "import sys\n"
-        "import app_monitor.client\n"
+        "import sightglass.client\n"
         "loaded = {'aiohttp', 'zmq', 'serial'} & set(sys.modules)\n"
         "assert not loaded, loaded\n"
     )

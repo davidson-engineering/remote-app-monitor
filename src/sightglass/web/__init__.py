@@ -2,7 +2,7 @@
 
 The server pushes values to the browser over a WebSocket: a full snapshot on
 connect (and again whenever elements are added), then only the elements that
-changed, at most ``fps`` times a second. The bundled ``app_monitor.js`` writes
+changed, at most ``fps`` times a second. The bundled ``sightglass.js`` writes
 each value into every page element whose ``data-bind`` attribute names it, so
 a dashboard is plain HTML::
 
@@ -66,8 +66,8 @@ class WebDashboard:
         open_browser: open the page in a browser once the server is up (not
             on Linux without a display, e.g. over SSH).
 
-    The page loads the client from ``/_app_monitor/app_monitor.js``; the LCD
-    and LED styles and fonts are at ``/_app_monitor/panel.css``.
+    The page loads the client from ``/_sightglass/sightglass.js``; the LCD
+    and LED styles and fonts are at ``/_sightglass/panel.css``.
     """
 
     def __init__(
@@ -118,7 +118,7 @@ class WebDashboard:
         app.router.add_get("/ws", self._websocket)
         app.router.add_post("/update", self._receive)
         app.router.add_get("/values", self._values)
-        app.router.add_static("/_app_monitor/", ASSETS)
+        app.router.add_static("/_sightglass/", ASSETS)
         if self.static_dir:
             app.router.add_static("/static/", self.static_dir)
         app.on_response_prepare.append(_revalidate)

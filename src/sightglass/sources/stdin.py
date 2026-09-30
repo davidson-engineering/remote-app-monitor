@@ -1,6 +1,6 @@
 """Standard input source, for piping a program's output into a monitor:
 
-my_program | app-monitor
+my_program | sightglass
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class StdinSource:
 
     async def updates(self) -> AsyncIterator[list[Update]]:
         # Reading a pipe can block indefinitely, so the thread isn't joined.
-        reader = thread_items(self._read, "app_monitor stdin", join=False)
+        reader = thread_items(self._read, "sightglass stdin", join=False)
         async with aclosing(reader) as updates:
             async for update in updates:
                 yield [update]

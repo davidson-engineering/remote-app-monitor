@@ -1,4 +1,4 @@
-"""Simulated data showing every kind of element: ``app-monitor --demo``."""
+"""Simulated data showing every kind of element: ``sightglass --demo``."""
 
 from __future__ import annotations
 

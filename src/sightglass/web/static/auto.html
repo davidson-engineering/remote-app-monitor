@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitor</title>
-  <link rel="stylesheet" href="/_app_monitor/panel.css">
+  <link rel="stylesheet" href="/_sightglass/panel.css">
   <style>
     :root {
       color-scheme: light dark;
@@ -215,6 +215,6 @@
     document.addEventListener("monitor:tick", ({ detail }) => { age = detail.age; renderStatus(); });
     new MutationObserver(renderStatus).observe(document.documentElement, { attributes: true, attributeFilter: ["data-connection"] });
   </script>
-  <script src="/_app_monitor/app_monitor.js"></script>
+  <script src="/_sightglass/sightglass.js"></script>
 </body>
 </html>

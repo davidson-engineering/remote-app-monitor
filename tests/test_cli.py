@@ -1,4 +1,4 @@
-"""The app-monitor command, run the way a user would."""
+"""The sightglass command, run the way a user would."""
 
 import asyncio
 import io
@@ -10,14 +10,14 @@ import time
 import aiohttp
 import pytest
 
-from app_monitor import (
+from sightglass import (
     SerialSource,
     StdinSource,
     TerminalDisplay,
     WebDashboard,
     ZmqSource,
 )
-from app_monitor.cli import build, parser
+from sightglass.cli import build, parser
 
 
 def args(*argv):
@@ -67,7 +67,7 @@ def test_build_reads_piped_stdin(monkeypatch):
     ],
 )
 def test_bad_combinations_are_explained(argv, message, capsys):
-    from app_monitor.cli import main
+    from sightglass.cli import main
 
     assert main([*argv, "--port", "0"]) == 1
     assert message in capsys.readouterr().err
@@ -76,7 +76,7 @@ def test_bad_combinations_are_explained(argv, message, capsys):
 def run_cli(*argv, stdin=subprocess.DEVNULL):
     """Start the command; return it and the dashboard URL it prints."""
     process = subprocess.Popen(
-        [sys.executable, "-m", "app_monitor", "--port", "0", *argv],
+        [sys.executable, "-m", "sightglass", "--port", "0", *argv],
         stdin=stdin,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -147,10 +147,10 @@ def test_demo():
 
 def test_version():
     result = subprocess.run(
-        [sys.executable, "-m", "app_monitor", "--version"],
+        [sys.executable, "-m", "sightglass", "--version"],
         capture_output=True, text=True, check=True,
     )  # fmt: skip
-    assert result.stdout.startswith("app-monitor 0.")
+    assert result.stdout.startswith("sightglass 0.")
 
 
 def test_busy_port_is_explained_for_the_command_line():
@@ -158,7 +158,7 @@ def test_busy_port_is_explained_for_the_command_line():
     try:
         port = int(url.rsplit(":", 1)[1].strip("/"))
         result = subprocess.run(
-            [sys.executable, "-m", "app_monitor", "--port", str(port)],
+            [sys.executable, "-m", "sightglass", "--port", str(port)],
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
@@ -168,7 +168,7 @@ def test_busy_port_is_explained_for_the_command_line():
         stop(process)
     assert result.returncode == 1
     assert result.stderr == (
-        f"app-monitor: error: port {port} is already in use (is another dashboard "
+        f"sightglass: error: port {port} is already in use (is another dashboard "
         f"running?); choose a different port, e.g. --port {port + 1}\n"
     )
 

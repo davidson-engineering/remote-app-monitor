@@ -13,7 +13,7 @@ import logging
 import math
 from pathlib import Path
 
-from app_monitor import (
+from sightglass import (
     CsvDecoder,
     MachineState,
     Monitor,

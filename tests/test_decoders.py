@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from app_monitor import BinaryFrameDecoder, CsvDecoder, JsonDecoder, KeyValueDecoder
+from sightglass import BinaryFrameDecoder, CsvDecoder, JsonDecoder, KeyValueDecoder
 
 
 def test_csv_buffers_partial_lines():
@@ -130,7 +130,7 @@ def test_binary_frames_reset_drops_partial_frame():
 def test_first_rejection_after_reset_is_expected(caplog):
     decoder = CsvDecoder(["a", "b"])
     decoder.reset()  # as on connecting: the stream is joined mid-line
-    with caplog.at_level("WARNING", logger="app_monitor"):
+    with caplog.at_level("WARNING", logger="sightglass"):
         assert decoder.feed(b"2\n1,2\n") == [{"a": "1", "b": "2"}]
         assert decoder.rejected == 0
         assert caplog.records == []
@@ -142,7 +142,7 @@ def test_first_rejection_after_reset_is_expected(caplog):
 def test_misconfigured_decoder_still_warns_after_reset(caplog):
     decoder = CsvDecoder(["a", "b", "c"])
     decoder.reset()
-    with caplog.at_level("WARNING", logger="app_monitor"):
+    with caplog.at_level("WARNING", logger="sightglass"):
         decoder.feed(b"1,2\n1,2\n")
     assert decoder.rejected == 1
     assert "expected 3 fields, got 2" in caplog.text

@@ -1,10 +1,10 @@
-"""``app-monitor``: show live values without writing any code.
+"""``sightglass``: show live values without writing any code.
 
-my_program | app-monitor                     # key=value or JSON lines on stdout
-app-monitor                                  # then: curl -d 'temp=21.5' .../update
-app-monitor --serial auto --csv temp,humidity
-app-monitor --zmq tcp://localhost:5556
-app-monitor --demo
+my_program | sightglass                     # key=value or JSON lines on stdout
+sightglass                                  # then: curl -d 'temp=21.5' .../update
+sightglass --serial auto --csv temp,humidity
+sightglass --zmq tcp://localhost:5556
+sightglass --demo
 """
 
 from __future__ import annotations
@@ -28,23 +28,23 @@ from .sources.stdin import StdinSource
 
 EXAMPLES = """\
 examples:
-  my_program | app-monitor               pipe a program's output: lines like
+  my_program | sightglass               pipe a program's output: lines like
                                          "progress=5 status=running" or JSON
                                          objects become values; other lines are
                                          printed as usual
-  app-monitor                            then POST values from anything:
+  sightglass                            then POST values from anything:
                                          curl -d temp=21.5 localhost:8080/update
-  app-monitor --serial auto --csv temperature,humidity
-  app-monitor --serial /dev/ttyUSB0 --binary 1=X,2=Y,10=velocity
-  app-monitor --zmq tcp://localhost:5556
-  app-monitor --zmq tcp://*:5557 --pull  receive from PUSH sockets (none are lost)
-  app-monitor --demo                     simulated data, every kind of element
+  sightglass --serial auto --csv temperature,humidity
+  sightglass --serial /dev/ttyUSB0 --binary 1=X,2=Y,10=velocity
+  sightglass --zmq tcp://localhost:5556
+  sightglass --zmq tcp://*:5557 --pull  receive from PUSH sockets (none are lost)
+  sightglass --demo                     simulated data, every kind of element
 """
 
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="app-monitor",
+        prog="sightglass",
         description="Live dashboard for values from your program, a device, or "
         "anything that can make an HTTP request.",
         epilog=EXAMPLES,
@@ -110,7 +110,7 @@ def parser() -> argparse.ArgumentParser:
         "--terminal",
         action="store_true",
         help="draw in this terminal instead of serving a web page "
-        "(log messages go to app-monitor.log)",
+        "(log messages go to sightglass.log)",
     )
     display.add_argument("-v", "--verbose", action="store_true", help="log more detail")
     return p
@@ -171,14 +171,14 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
 
 def guide() -> str:
     """The agent guide shipped with the package (GUIDE.md)."""
-    return resources.files("app_monitor").joinpath("GUIDE.md").read_text("utf-8")
+    return resources.files("sightglass").joinpath("GUIDE.md").read_text("utf-8")
 
 
 def _input_ended(stdin: StdinSource) -> None:
     if not stdin.lines_read:  # e.g. started with </dev/null: nothing to report
         return
     print(
-        "app-monitor: input ended; still showing the last values (Ctrl+C to quit)",
+        "sightglass: input ended; still showing the last values (Ctrl+C to quit)",
         file=sys.stderr,
         flush=True,
     )
@@ -209,7 +209,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s: %(message)s",
         # The terminal display would be drawn over any log output.
-        filename="app-monitor.log" if args.terminal else None,
+        filename="sightglass.log" if args.terminal else None,
     )
     try:
         monitor, sources, outputs = build(args)
@@ -219,7 +219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         message = message or str(error)
         if "already in use" in message:
             message += f", e.g. --port {args.port + 1}"
-        print(f"app-monitor: error: {message}", file=sys.stderr)
+        print(f"sightglass: error: {message}", file=sys.stderr)
         return 1
     return 0
 

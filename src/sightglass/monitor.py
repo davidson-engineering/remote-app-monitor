@@ -399,7 +399,7 @@ class Monitor:
                 self._task = None
                 ready.set()
 
-        self._thread = threading.Thread(target=thread, name="app_monitor", daemon=True)
+        self._thread = threading.Thread(target=thread, name="sightglass", daemon=True)
         self._thread.start()
         if not ready.wait(timeout):
             raise TimeoutError(f"the monitor did not start within {timeout} s")

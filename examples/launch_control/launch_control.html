@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aries II launch control</title>
-  <link rel="stylesheet" href="/_app_monitor/panel.css">
+  <link rel="stylesheet" href="/_sightglass/panel.css">
   <link rel="stylesheet" href="/static/launch_control.css">
 </head>
 <!--
-  Plain HTML: app_monitor.js (loaded at the end) keeps every data-bind
+  Plain HTML: sightglass.js (loaded at the end) keeps every data-bind
   element up to date, and launch_control.css draws the gauges, tanks and
   lamps from those values. data-mode="var" hands a number to CSS as --value;
   data-stale-after marks a value that has stopped arriving, and each
@@ -171,6 +171,6 @@
       <pre data-bind="log"></pre>
     </section>
   </main>
-  <script src="/_app_monitor/app_monitor.js"></script>
+  <script src="/_sightglass/sightglass.js"></script>
 </body>
 </html>

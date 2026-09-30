@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # Any language can feed a dashboard: here, plain shell and curl.
 #
-#   curl -fsSL https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/03_from_the_shell.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/03_from_the_shell.sh | bash
 #
-# Starts `app-monitor` (installed, or fetched with uvx), then posts a few
+# Starts `sightglass` (installed, or fetched with uvx), then posts a few
 # readings about this machine every second. Stop with Ctrl+C.
 set -euo pipefail
 
 port=${PORT:-8080}
 url="http://127.0.0.1:$port"
-package="remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor"
+package="sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 
-if command -v app-monitor >/dev/null; then
-  app_monitor=(app-monitor)
+if command -v sightglass >/dev/null; then
+  sightglass=(sightglass)
 else
-  app_monitor=(uvx --quiet --from "$package" app-monitor)
+  sightglass=(uvx --quiet --from "$package" sightglass)
 fi
 
 echo "Starting the dashboard (the first run downloads it)..."
-"${app_monitor[@]}" --port "$port" --title "From the shell" --open </dev/null &
+"${sightglass[@]}" --port "$port" --title "From the shell" --open </dev/null &
 dashboard=$!
 trap 'kill $dashboard 2>/dev/null' EXIT
 

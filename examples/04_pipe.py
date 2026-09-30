@@ -4,9 +4,9 @@
 # ///
 """Pipe a program into a dashboard: no dashboard code in the program at all.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/04_pipe.py | uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --open
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --open
 
-(or, with the package installed:  python examples/04_pipe.py | app-monitor --open)
+(or, with the package installed:  python examples/04_pipe.py | sightglass --open)
 
 This pretend data pipeline only prints. Lines made of key=value pairs become
 live values on the dashboard; every other line still shows in the terminal.

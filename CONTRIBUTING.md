@@ -22,7 +22,7 @@ screenshot after a change to the launch control example.
 Releases are published to PyPI by `.github/workflows/release.yml` when a
 GitHub release is published.
 
-1. Set `__version__` in `src/app_monitor/__init__.py` and merge to `main`.
+1. Set `__version__` in `src/sightglass/__init__.py` and merge to `main`.
 2. Create a GitHub release with the tag `v<version>` (e.g. `v0.2.0`). The
    workflow checks the tag matches `__version__`, builds, and uploads.
 
@@ -33,9 +33,9 @@ so no API token is stored in GitHub. Before the first release:
 
 1. On pypi.org, go to *Your projects > Publishing* and add a **pending
    publisher** (the project doesn't exist on PyPI until its first upload):
-   - PyPI project name: `remote-app-monitor`
+   - PyPI project name: `sightglass`
    - Owner: `davidson-engineering`
-   - Repository: `remote-app-monitor`
+   - Repository: `sightglass`
    - Workflow: `release.yml`
    - Environment: `pypi`
 2. In the GitHub repository settings, create an environment named `pypi`.

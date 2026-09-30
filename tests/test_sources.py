@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from app_monitor import (
+from sightglass import (
     CsvDecoder,
     LogMonitor,
     Monitor,
@@ -17,8 +17,8 @@ from app_monitor import (
     TextElement,
     ZmqSource,
 )
-from app_monitor.sources._thread import thread_items
-from app_monitor.sources.serialport import find_serial_port
+from sightglass.sources._thread import thread_items
+from sightglass.sources.serialport import find_serial_port
 
 from .conftest import FakeSerialDevice
 
@@ -111,7 +111,7 @@ async def test_serial_waits_for_device_and_reconnects(tmp_path, consume, caplog)
     monitor = Monitor()
     monitor.add(TextElement("v"))
     source = SerialSource(str(link), decoder=CsvDecoder(["v"]), reconnect_delay=0.05)
-    with caplog.at_level(logging.WARNING, logger="app_monitor"):
+    with caplog.at_level(logging.WARNING, logger="sightglass"):
         consume(monitor, source)
         await until(lambda: "Waiting for serial device" in caplog.text)
 
@@ -242,7 +242,7 @@ async def test_thread_items_stops_the_thread_when_closed():
 async def test_stdin_turns_pairs_and_json_into_updates_and_echoes_the_rest():
     import io
 
-    from app_monitor import StdinSource
+    from sightglass import StdinSource
 
     lines = io.StringIO(
         "Starting job...\n"
@@ -265,7 +265,7 @@ async def test_stdin_turns_pairs_and_json_into_updates_and_echoes_the_rest():
 async def test_stdin_with_a_decoder():
     import io
 
-    from app_monitor import StdinSource
+    from sightglass import StdinSource
 
     source = StdinSource(
         decoder=CsvDecoder(["a", "b"]), stream=io.StringIO("1,2\nhello\n"), echo=False

@@ -1,4 +1,4 @@
-// app_monitor browser client: keeps [data-bind] elements in sync with the monitor.
+// sightglass browser client: keeps [data-bind] elements in sync with the monitor.
 //
 //   <span data-bind="position_x"></span>                            text (default)
 //   <div data-bind="machine.estop" data-mode="state"></div>         data-state="on" | "off"

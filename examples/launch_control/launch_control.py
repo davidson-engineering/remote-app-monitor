@@ -26,7 +26,7 @@ import mission
 import weather
 from vehicle import ENGINES, EVENTS, Vehicle
 
-from app_monitor import (
+from sightglass import (
     IndicatorLamp,
     LogMonitor,
     MachineState,

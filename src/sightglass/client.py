@@ -3,7 +3,7 @@
 Uses only the standard library, so it works in any Python program without
 installing the dashboard's extras::
 
-    from app_monitor.client import Client
+    from sightglass.client import Client
 
     dashboard = Client()                    # http://127.0.0.1:8080
     dashboard.set("progress", 0.5)          # returns immediately
@@ -35,7 +35,7 @@ DEFAULT_URL = "http://127.0.0.1:8080"
 
 
 class Client:
-    """Sends updates to a :class:`~app_monitor.WebDashboard` over HTTP.
+    """Sends updates to a :class:`~sightglass.WebDashboard` over HTTP.
 
     Args:
         url: the dashboard's address (as printed when it starts).
@@ -67,7 +67,7 @@ class Client:
         self._closing = False
         self._dropped = 0
         self._thread = threading.Thread(
-            target=self._send_forever, name="app_monitor client", daemon=True
+            target=self._send_forever, name="sightglass client", daemon=True
         )
         self._thread.start()
         atexit.register(self.close)

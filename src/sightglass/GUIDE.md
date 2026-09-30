@@ -1,18 +1,17 @@
-# Building monitors with app_monitor: a guide for AI agents
+# Building monitors with sightglass: a guide for AI agents
 
-`remote-app-monitor` (import name `app_monitor`) shows live values from a
-program, a device, or anything that can make an HTTP request, in a browser
-(default) or the terminal. Values are sent by id (`"progress"`,
-`"X.velocity"`); the first value sent for an id creates its display. Print this
-guide from any project with `app-monitor --guide`; full reference:
-`app-monitor --help` and the README.
+`sightglass` shows live values from a program, a device, or anything that
+can make an HTTP request, in a browser (default) or the terminal. Values are
+sent by id (`"progress"`, `"X.velocity"`); the first value sent for an id
+creates its display. Print this guide from any project with
+`sightglass --guide`; full reference: `sightglass --help` and the README.
 
 ## 1. Install
 
 ```bash
-pip install "remote-app-monitor[web]"     # add serial / zmq extras as needed, or [all]
+pip install "sightglass[web]"     # add serial / zmq extras as needed, or [all]
 # until it is on PyPI:
-pip install "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor"
+pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
 Python 3.11+. The package has no required dependencies; `[web]` adds
@@ -23,16 +22,16 @@ aiohttp for the browser dashboard, `[serial]` pyserial, `[zmq]` pyzmq.
 | Situation | Do this |
 | --- | --- |
 | You can edit the Python program | `monitor = start()`, then `monitor.set(id, value)` anywhere |
-| Another language, a shell script, or a program you can't edit | run `app-monitor`, then `POST /update` (curl) |
-| The program can print lines | print `key=value` pairs; run `program \| app-monitor` |
+| Another language, a shell script, or a program you can't edit | run `sightglass`, then `POST /update` (curl) |
+| The program can print lines | print `key=value` pairs; run `program \| sightglass` |
 | A separate Python process should report to a shared dashboard | `Client().set(id, value)` (standard library only) |
-| A microcontroller on a serial port | `app-monitor --serial auto --csv a,b,c` (or `--json`, `--binary`) |
-| A ZeroMQ publisher | `app-monitor --zmq ENDPOINT` (`--pull` for PUSH senders: nothing lost) |
+| A microcontroller on a serial port | `sightglass --serial auto --csv a,b,c` (or `--json`, `--binary`) |
+| A ZeroMQ publisher | `sightglass --zmq ENDPOINT` (`--pull` for PUSH senders: nothing lost) |
 | An asyncio program | `await monitor.run(outputs=[WebDashboard()])` in a task |
-| Just show the user what it looks like | `app-monitor --demo` |
+| Just show the user what it looks like | `sightglass --demo` |
 
 Choose `start()` when the dashboard should live and die with the program.
-Choose a separate `app-monitor` process (fed by `Client`, curl or a pipe) when
+Choose a separate `sightglass` process (fed by `Client`, curl or a pipe) when
 several programs report to one dashboard, or it should outlive them.
 
 ## 3. Recipes
@@ -42,7 +41,7 @@ several programs report to one dashboard, or it should outlive them.
 ```python
 import time
 
-from app_monitor import start
+from sightglass import start
 
 monitor = start()  # prints "Dashboard: http://127.0.0.1:8080/", returns at once
 monitor.set("status", "loading")
@@ -66,7 +65,7 @@ Declare elements for bars, charts, lamps, units and number formats. Anything
 not declared still appears, as text.
 
 ```python
-from app_monitor import (
+from sightglass import (
     IndicatorLamp,
     Monitor,
     ProgressBar,
@@ -93,7 +92,7 @@ monitor.set("X.velocity", 2.5)
 ### From any language
 
 ```bash
-app-monitor --title "Build farm" &
+sightglass --title "Build farm" &
 curl -d 'progress=5 status=running' http://127.0.0.1:8080/update
 curl -d '{"job": {"progress": 5, "ok": true}}' http://127.0.0.1:8080/update
 curl http://127.0.0.1:8080/values      # read back what is shown, as JSON
@@ -108,7 +107,7 @@ pairs / `id value`. Nested JSON objects address groups: `{"job": {"progress":
 ### Piping a program's output
 
 ```bash
-my_program | app-monitor
+my_program | sightglass
 ```
 
 A line made entirely of `key=value` pairs (`progress=5 status="two words"`) or
@@ -118,7 +117,7 @@ In Python: `print(f"progress={i} rate={rate:.1f}", flush=True)`.
 ### From a separate Python process
 
 ```python
-from app_monitor import Client
+from sightglass import Client
 
 dashboard = Client("http://127.0.0.1:8080")  # token="..." if the dashboard has one
 dashboard.set("progress", 5)
@@ -126,23 +125,23 @@ dashboard.update({"status": "running", "errors": 0})
 ```
 
 Updates are sent in order in the background, retried until the dashboard is
-reachable, and flushed when the program exits. `from app_monitor.client import
+reachable, and flushed when the program exits. `from sightglass.client import
 send; send({"status": "done"})` sends one message immediately and raises
 `ConnectionError` if it can't.
 
 ### A serial device
 
 ```bash
-app-monitor --serial auto --csv temperature,humidity   # device prints "21.5,48\n"
-app-monitor --serial /dev/ttyUSB0 --json               # {"temperature": 21.5}
-app-monitor --serial auto --binary 1=X,2=Y,10=velocity # binary frames, see README
+sightglass --serial auto --csv temperature,humidity   # device prints "21.5,48\n"
+sightglass --serial /dev/ttyUSB0 --json               # {"temperature": 21.5}
+sightglass --serial auto --binary 1=X,2=Y,10=velocity # binary frames, see README
 ```
 
 `auto` picks the first USB serial device. The source waits for the device and
 reconnects after it is unplugged. In Python:
 
 ```python
-from app_monitor import CsvDecoder, Monitor, SerialSource
+from sightglass import CsvDecoder, Monitor, SerialSource
 
 monitor = Monitor()
 device = SerialSource("auto", 115200, decoder=CsvDecoder(["temperature", "humidity"]))
@@ -188,13 +187,13 @@ complete example (gauges, tanks, lamps, several feeds), as is
 command each), plus a Docker deployment.
 
 ```html
-<link rel="stylesheet" href="/_app_monitor/panel.css">
+<link rel="stylesheet" href="/_sightglass/panel.css">
 <span data-bind="temperature"></span>
 <div class="led" data-bind="pump" data-mode="state"></div>
 <div data-bind="rate.values" data-mode="sparkline" style="height: 24px"></div>
 <div class="needle" data-bind="pressure.ratio" data-mode="var"></div>
 <span data-bind="wind" data-stale-after="3"></span>
-<script src="/_app_monitor/app_monitor.js"></script>
+<script src="/_sightglass/sightglass.js"></script>
 ```
 
 Serve it with `WebDashboard("page.html", static_dir="static")` (files in
@@ -226,13 +225,13 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
 - **As a Linux service** (a dashboard that outlives the programs feeding it):
 
   ```ini
-  # /etc/systemd/system/app-monitor.service
+  # /etc/systemd/system/sightglass.service
   [Unit]
   Description=Live dashboard
   After=network-online.target
 
   [Service]
-  ExecStart=/opt/app-monitor/venv/bin/app-monitor --host 0.0.0.0 --token change-me
+  ExecStart=/opt/sightglass/venv/bin/sightglass --host 0.0.0.0 --token change-me
   Restart=on-failure
 
   [Install]
@@ -254,9 +253,9 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
 ## 8. Gotchas
 
 - A program that exits takes a `start()` dashboard with it. For a dashboard
-  that stays up, run `app-monitor` separately and send with `Client` or curl.
+  that stays up, run `sightglass` separately and send with `Client` or curl.
 - `TerminalDisplay` / `--terminal` redraws the whole terminal: don't print
-  while it runs (the command logs to `app-monitor.log` instead).
+  while it runs (the command logs to `sightglass.log` instead).
 - ZeroMQ PUB/SUB drops messages sent before the subscriber connects; use
   PUSH with `ZmqSource(endpoint, pattern="pull")` / `--zmq ... --pull`.
 - In asyncio code use `await monitor.run(...)`; `start()` runs its own loop in

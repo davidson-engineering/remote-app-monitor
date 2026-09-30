@@ -1,13 +1,13 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor",
+#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
 #     "psutil>=5.9",
 # ]
 # ///
 """System monitor: this computer's CPU, memory, disk and network, live.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/02_system_monitor.py
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/02_system_monitor.py
 
 Shows how to choose the displays yourself: charts for trends, bars for
 capacity, a table, and groups. Real data, from psutil. Stop with Ctrl+C.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import psutil
 
-from app_monitor import (
+from sightglass import (
     Monitor,
     ProgressBar,
     Sparkline,

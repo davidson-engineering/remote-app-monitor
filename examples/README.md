@@ -8,7 +8,7 @@ example needs on the fly: no clone, no virtualenv. Install it once with
 `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS, Linux) or
 `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` (Windows).
 
-Without uv: `pip install "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor"`,
+Without uv: `pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"`,
 download the example, and run it with `python`.
 
 ## Start here: the demo
@@ -16,7 +16,7 @@ download the example, and run it with `python`.
 Every kind of display, with simulated data:
 
 ```bash
-uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --demo --open
+uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo --open
 ```
 
 ## The showcase: launch control
@@ -32,8 +32,8 @@ says it has gone quiet. [launch_control/](launch_control/)
 ![Launch control](../docs/launch-control.png)
 
 ```bash
-git clone https://github.com/davidson-engineering/remote-app-monitor
-cd remote-app-monitor
+git clone https://github.com/davidson-engineering/sightglass
+cd sightglass
 uv run --all-extras examples/launch_control/launch_control.py
 ```
 
@@ -47,7 +47,7 @@ is declared: each value gets a display the first time it's set.
 [01_hello.py](01_hello.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/01_hello.py
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/01_hello.py
 ```
 
 ## 2. System monitor
@@ -57,7 +57,7 @@ choose the displays: charts for trends, bars for capacity, a table, groups.
 [02_system_monitor.py](02_system_monitor.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/02_system_monitor.py
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/02_system_monitor.py
 ```
 
 ## 3. From the shell
@@ -66,7 +66,7 @@ Any language can feed a dashboard over HTTP. This bash script starts one and
 posts readings with `curl`. [03_from_the_shell.sh](03_from_the_shell.sh)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/03_from_the_shell.sh | bash
+curl -fsSL https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/03_from_the_shell.sh | bash
 ```
 
 ## 4. Pipe a program's output
@@ -76,7 +76,7 @@ other output still shows in the terminal. The program needs no dashboard code
 at all. [04_pipe.py](04_pipe.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/04_pipe.py | uvx --from "remote-app-monitor[web] @ git+https://github.com/davidson-engineering/remote-app-monitor" app-monitor --open
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --open
 ```
 
 ## 5. Many processes, one dashboard
@@ -86,7 +86,7 @@ the standard library. In a real system they could be separate programs on
 separate machines. [05_many_processes.py](05_many_processes.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/05_many_processes.py
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/05_many_processes.py
 ```
 
 ## 6. Deploy with Docker
@@ -96,8 +96,8 @@ network with a token. Stop the feeder (`docker compose stop feeder`) to see
 the page flag the missing data after 5 seconds. [docker/](docker/)
 
 ```bash
-git clone https://github.com/davidson-engineering/remote-app-monitor
-cd remote-app-monitor/examples/docker
+git clone https://github.com/davidson-engineering/sightglass
+cd sightglass/examples/docker
 docker compose up
 ```
 
@@ -110,7 +110,7 @@ A three-axis machine drawn in the terminal instead of a browser.
 [terminal_axes.py](terminal_axes.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/remote-app-monitor/main/examples/terminal_axes.py --simulate
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/terminal_axes.py --simulate
 ```
 
 `--zmq tcp://localhost:5556` reads [zmq_publisher.py](zmq_publisher.py)
@@ -125,8 +125,8 @@ simulated data. [robot_dashboard/](robot_dashboard/)
 ![Robot control panel](../docs/robot-dashboard.jpg)
 
 ```bash
-git clone https://github.com/davidson-engineering/remote-app-monitor
-cd remote-app-monitor
+git clone https://github.com/davidson-engineering/sightglass
+cd sightglass
 uv run --all-extras examples/robot_dashboard/dashboard.py --simulate
 ```
 
