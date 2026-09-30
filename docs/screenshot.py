@@ -1,10 +1,10 @@
-"""Take the README's screenshot of the launch control example.
+"""Take the README's screenshot of the launch demo.
 
     uv run --all-extras python docs/screenshot.py
 
-Runs the example from the start of its countdown, as someone trying it would,
-and photographs the page 52 seconds after liftoff (about 80 s from now), just
-past maximum aerodynamic pressure. Needs Chromium once:
+Runs `sightglass --demo launch` from the start of its countdown, as someone
+trying it would, and photographs the page 52 seconds after liftoff (about
+80 s from now), just past maximum aerodynamic pressure. Needs Chromium once:
 uv run playwright install chromium.
 """
 
@@ -18,17 +18,15 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).parent.parent
-EXAMPLE = ROOT / "examples" / "launch_control" / "launch_control.py"
 OUTPUT = ROOT / "docs" / "launch-control.png"
 MOMENT = 30 + 52  # seconds from starting: the countdown, then 52 s of flight
 
 
 def main() -> None:
     example = subprocess.Popen(
-        [sys.executable, str(EXAMPLE)],
+        [sys.executable, "-m", "sightglass", "--demo", "launch", "--port", "0"],
         stderr=subprocess.PIPE,
         text=True,
-        env={**os.environ, "BROWSER": "true"},  # we have our own browser
         start_new_session=True,
     )
     started = time.monotonic()

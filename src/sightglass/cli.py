@@ -39,6 +39,7 @@ examples:
   sightglass --zmq tcp://localhost:5556
   sightglass --zmq tcp://*:5557 --pull  receive from PUSH sockets (none are lost)
   sightglass --demo                     simulated data, every kind of element
+  sightglass --demo launch --open       the showcase: a rocket launch, live
 """
 
 
@@ -86,7 +87,15 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="with --zmq: bind a PULL socket instead of SUB",
     )
-    inputs.add_argument("--demo", action="store_true", help="show simulated data")
+    inputs.add_argument(
+        "--demo",
+        nargs="?",
+        const="elements",
+        choices=["elements", "launch"],
+        metavar="launch",
+        help="show simulated data: every kind of element on the generic page, or "
+        "with 'launch', a rocket launch on a hand-built page, fed by three programs",
+    )
 
     display = p.add_argument_group("display")
     display.add_argument("--port", type=int, default=8080, help="(default: 8080)")
@@ -169,6 +178,29 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
     return monitor, sources, outputs
 
 
+def launch(args: argparse.Namespace) -> None:
+    """The launch demo: its own page and data, until Ctrl+C."""
+    ignored = {
+        "--serial": args.serial,
+        "--csv": args.csv,
+        "--json": args.json,
+        "--binary": args.binary,
+        "--zmq": args.zmq,
+        "--pull": args.pull,
+        "--title": args.title != "Monitor",
+        "--token": args.token,
+        "--stale-after": args.stale_after,
+        "--terminal": args.terminal,
+    }
+    if given := [flag for flag, value in ignored.items() if value]:
+        raise ValueError(
+            f"--demo launch has its own page and data; drop {', '.join(given)}"
+        )
+    from .launch import run
+
+    run(host=args.host, port=args.port, open_browser=args.open)
+
+
 def guide() -> str:
     """The agent guide shipped with the package (GUIDE.md)."""
     return resources.files("sightglass").joinpath("GUIDE.md").read_text("utf-8")
@@ -212,8 +244,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         filename="sightglass.log" if args.terminal else None,
     )
     try:
-        monitor, sources, outputs = build(args)
-        monitor.serve(sources=sources, outputs=outputs)
+        if args.demo == "launch":
+            launch(args)
+        else:
+            monitor, sources, outputs = build(args)
+            monitor.serve(sources=sources, outputs=outputs)
     except (ImportError, OSError, ValueError) as error:
         message = error.strerror if isinstance(error, OSError) else None
         message = message or str(error)

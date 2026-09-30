@@ -3,9 +3,11 @@
 import asyncio
 import io
 import os
+import re
 import subprocess
 import sys
 import time
+import urllib.request
 
 import aiohttp
 import pytest
@@ -64,6 +66,10 @@ def test_build_reads_piped_stdin(monkeypatch):
         (["--zmq", "tcp://x:1", "--binary", "1=X"], "--serial device"),
         (["--pull"], "--pull goes with --zmq"),
         (["--serial", "auto", "--binary", "X=1"], "BYTE=NAME"),
+        (
+            ["--demo", "launch", "--terminal"],
+            "has its own page and data; drop --terminal",
+        ),
     ],
 )
 def test_bad_combinations_are_explained(argv, message, capsys):
@@ -143,6 +149,28 @@ def test_demo():
         assert values["job.rate"]["values"]  # the chart has history
     finally:
         stop(process)
+
+
+def test_demo_launch():
+    """The showcase: its page, and values from all three of its programs."""
+    process, url = run_cli("--demo", "launch")
+    try:
+        with urllib.request.urlopen(url) as page:
+            assert "Aries II" in page.read().decode()
+        deadline = time.monotonic() + 20  # the feeders are separate processes
+        while time.monotonic() < deadline:
+            values = asyncio.run(snapshot(url))
+            if values["clock.time"] and values["weather.wind"]["values"]:
+                break
+            time.sleep(0.2)
+        assert re.fullmatch(r"\d\d:\d\d:\d\d", values["clock.time"])  # ground
+        assert values["weather.wind"]["values"]  # the weather mast
+        assert int(values["frame"]) > 0  # the vehicle
+    finally:
+        # Stopped abruptly: the feeders notice and exit too, or this would
+        # wait for them on the pipes they share.
+        _, err = stop(process)
+    assert "Ground systems (process" in err
 
 
 def test_version():

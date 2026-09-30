@@ -6,6 +6,10 @@ async API, so these run alongside the other asyncio tests in one session.
 """
 
 import asyncio
+import os
+import re
+import subprocess
+import sys
 
 import pytest
 from playwright.async_api import async_playwright, expect
@@ -193,3 +197,34 @@ async def test_generic_page_draws_declared_and_new_elements(page, serve):
     await expect(page.locator(".row", has_text="Job")).to_contain_text("25.0%")
     await expect(page.locator(".row", has_text="status")).to_contain_text("ok")
     await expect(page.locator("#connection")).to_have_text("Live")
+
+
+async def test_launch_demo_page_comes_alive(page):
+    """sightglass --demo launch: every feed arrives and the instruments move."""
+    process = await asyncio.create_subprocess_exec(
+        *[sys.executable, "-m", "sightglass", "--demo", "launch", "--port", "0"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    )
+    try:
+        url = (await process.stderr.readline()).decode().split()[1]
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else 0)
+        await page.goto(url)
+        clock = page.locator('.clock [data-bind="clock.time"]')
+        await expect(clock).to_have_text(re.compile(r"^\d\d:\d\d:\d\d$"))
+        await expect(page.locator(".feeds .led[data-bind]")).to_have_count(3)
+        # The feeders are separate processes: allow them time to start.
+        await expect(page.locator(".feeds [data-stale]")).to_have_count(
+            0, timeout=15_000
+        )
+        gauge = page.locator('[data-bind="acceleration.ratio"]')
+        await expect(gauge).to_have_css("--value", "0.2")  # 1 g, standing on the pad
+        await expect(page.locator(".weather .chart polyline")).to_have_count(1)
+        assert not errors
+    finally:
+        process.terminate()
+        await asyncio.wait_for(process.communicate(), 10)

@@ -27,18 +27,18 @@ is plain HTML and CSS, and three separate programs feed it, each its own way:
 the vehicle's telemetry is a source inside the dashboard program, ground
 systems report from another process with `Client`, and the weather mast posts
 plain HTTP with no library at all. Stop one of them and its part of the page
-says it has gone quiet. [launch_control/](launch_control/)
+says it has gone quiet.
 
 ![Launch control](../docs/launch-control.png)
 
 ```bash
-git clone https://github.com/davidson-engineering/sightglass
-cd sightglass
-uv run --all-extras examples/launch_control/launch_control.py
+uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --open
 ```
 
-The launch repeats every five minutes or so; `--at 60` starts a minute after
-liftoff.
+The launch repeats every five minutes or so. It ships with sightglass, so
+once installed, `sightglass --demo launch --open` is enough. Its source is in
+[src/sightglass/launch/](../src/sightglass/launch/): copy the folder as a
+starting point for a page of your own.
 
 ## 1. Hello, dashboard
 

@@ -28,7 +28,7 @@ aiohttp for the browser dashboard, `[serial]` pyserial, `[zmq]` pyzmq.
 | A microcontroller on a serial port | `sightglass --serial auto --csv a,b,c` (or `--json`, `--binary`) |
 | A ZeroMQ publisher | `sightglass --zmq ENDPOINT` (`--pull` for PUSH senders: nothing lost) |
 | An asyncio program | `await monitor.run(outputs=[WebDashboard()])` in a task |
-| Just show the user what it looks like | `sightglass --demo` |
+| Just show the user what it looks like | `sightglass --demo --open` (every display), `sightglass --demo launch --open` (a hand-built page) |
 
 Choose `start()` when the dashboard should live and die with the program.
 Choose a separate `sightglass` process (fed by `Client`, curl or a pipe) when
@@ -180,11 +180,12 @@ monitor.serve(sources=[device])  # runs until Ctrl+C
 ## 5. A custom page
 
 For a branded or hardware-style panel, write plain HTML and bind elements by
-id; no JavaScript is needed. The repository's `examples/launch_control/` is a
-complete example (gauges, tanks, lamps, several feeds), as is
-`examples/robot_dashboard/` (segment displays, LEDs). The repository's
-`examples/README.md` has a runnable example of each route in this guide (one
-command each), plus a Docker deployment.
+id; no JavaScript is needed. `sightglass --demo launch` runs a complete
+example (gauges, tanks, lamps, several feeds) whose source ships with the
+package: `python -c "import sightglass.launch as m; print(m.HERE)"` prints
+where. The repository's `examples/robot_dashboard/` is another (segment
+displays, LEDs), and its `examples/README.md` has a runnable example of each
+route in this guide (one command each), plus a Docker deployment.
 
 ```html
 <link rel="stylesheet" href="/_sightglass/panel.css">

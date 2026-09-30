@@ -7,10 +7,16 @@ sight glass on a tank.
 
 ![Launch control: a rocket launch shown live, with a countdown clock, gauges, engine lamps, propellant tanks, a go/no-go poll, weather and an event log](docs/launch-control.png)
 
-The [launch control example](examples/launch_control/) above is a plain HTML
-page fed live by three separate programs: an in-process source, another
-process using `Client`, and plain HTTP posts. Its gauges, tanks and lamps are
-drawn by CSS from the values; the page has no JavaScript of its own.
+That's the launch control demo; run it with one command:
+
+```bash
+uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --open
+```
+
+It's a plain HTML page fed live by three separate programs: an in-process
+source, another process using `Client`, and plain HTTP posts. Its gauges,
+tanks and lamps are drawn by CSS from the values; the page has no JavaScript
+of its own. The source is in [src/sightglass/launch/](src/sightglass/launch/).
 
 - **One line to start.** `start()` serves a dashboard in the background and
   prints its address; `monitor.set("progress", 5)` works from any thread, and
@@ -42,7 +48,8 @@ Until the first PyPI release, install from GitHub:
 pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
-Try it: `sightglass --demo`, then open the address it prints.
+Try it: `sightglass --demo launch --open` runs the page above;
+`sightglass --demo --open` shows every kind of display on the generic page.
 
 ## Quick start
 
@@ -309,4 +316,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
 MIT. The bundled DSEG fonts are © keshikan, licensed under the SIL Open Font
 License 1.1 (`src/sightglass/web/static/fonts/DSEG-LICENSE.txt`). The launch
 control example's B612 fonts are © The B612 Project Authors, under the same
-license (`examples/launch_control/static/fonts/B612-LICENSE.txt`).
+license (`src/sightglass/launch/static/fonts/B612-LICENSE.txt`).
