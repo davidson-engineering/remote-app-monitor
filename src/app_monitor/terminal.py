@@ -8,7 +8,7 @@ import sys
 from typing import TextIO
 
 from .elements import Element
-from .formatting import boxed
+from .formatting import Style, boxed
 from .monitor import Group, Monitor
 
 ALT_SCREEN_ON = "\x1b[?1049h"
@@ -19,14 +19,17 @@ CURSOR_HOME = "\x1b[H"
 CLEAR_LINE_END = "\x1b[K"
 CLEAR_SCREEN_END = "\x1b[J"
 
+HEADING = Style(bold=True)
+
 
 class TerminalDisplay:
     """Draws the monitor in the terminal, redrawing only when something changed
     and at most ``fps`` times per second.
 
     Uses the terminal's alternate screen, so the previous contents come back
-    when it stops. Anything else printed to the same terminal (e.g. logging to
-    stdout) will be overdrawn; send logs to a file instead.
+    when it stops; the final frame is then printed so it stays in view.
+    Anything else printed to the same terminal (e.g. logging to stdout) will be
+    overdrawn; send logs to a file instead.
     """
 
     def __init__(
@@ -45,7 +48,7 @@ class TerminalDisplay:
         for item in monitor.layout:
             if isinstance(item, Group):
                 inner = width - 4 if item.border else width
-                body = "\n".join(element.render(inner) for element in item.elements)
+                body = "\n".join(_render_element(el, inner) for el in item.elements)
                 blocks.append(boxed(body, width, item.name) if item.border else body)
             else:
                 blocks.append(_render_element(item, width))
@@ -63,11 +66,13 @@ class TerminalDisplay:
                 out.flush()
                 await asyncio.sleep(1 / self.fps)
         finally:
-            out.write(CURSOR_SHOW + ALT_SCREEN_OFF)
+            out.write(CURSOR_SHOW + ALT_SCREEN_OFF + self.render(monitor) + "\n")
             out.flush()
 
 
 def _render_element(element: Element, width: int) -> str:
-    if not element.border:
-        return element.render(width)
-    return boxed(element.render(width - 4), width, element.label)
+    if element.border:
+        return boxed(element.render(width - 4), width, element.label)
+    if element.block:  # a table or log: label it with a heading line
+        return f"{HEADING.apply(element.label)}\n{element.render(width)}"
+    return element.render(width)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -56,6 +57,21 @@ def as_number(value: Any) -> int | float | None:
         except ValueError:
             return None
     return None
+
+
+def default_text(value: Any) -> str:
+    """Text for a value that has no :class:`TextFormat`.
+
+    Numbers that need more than 6 significant digits are shortened
+    (``18.627682319492283`` becomes ``"18.6277"``); anything else, including a
+    device's own formatting such as ``"1.50"``, is shown exactly as given.
+    """
+    number = as_number(value)
+    if isinstance(number, float) and math.isfinite(number):
+        short = f"{number:.6g}" if abs(number) < 1e6 else f"{number:.0f}"
+        if float(short) != number:
+            return short
+    return str(value)
 
 
 @dataclass(frozen=True)

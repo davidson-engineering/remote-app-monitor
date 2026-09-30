@@ -7,6 +7,7 @@ from app_monitor import (
     MachineState,
     ProgressBar,
     RangeBar,
+    Sparkline,
     Table,
     TextElement,
     TextFormat,
@@ -43,7 +44,7 @@ def test_progress_bar():
     bar = ProgressBar("p", total=10, label="Loading")
     bar.update(5)
     line = bar.render(40)
-    assert line.startswith("Loading    [")
+    assert line.startswith(f"{'Loading':<12} [")
     assert "█" in line and "░" in line and line.endswith(" 50.0%")
     assert len(line) == 40
     assert bar.to_json() == {"text": "50.0%", "ratio": 0.5}
@@ -115,7 +116,7 @@ def test_indicator_lamp_parses_device_booleans(value, on):
     lamp.update(value)
     assert lamp.to_json() is on
     color = "32" if on else "31"
-    assert lamp.render(20) == f"Pump: \x1b[1;{color}m●\x1b[0m"
+    assert lamp.render(20) == f"{'Pump':<12} \x1b[1;{color}m●\x1b[0m"
 
 
 def test_indicator_lamp_rejects_garbage():
@@ -137,9 +138,11 @@ def test_machine_state_bits():
 
 def test_machine_state_render_wraps_to_width():
     state = MachineState("m", states=["deadman_switch", "motors_enabled", "estop"])
-    lines = state.render(34).split("\n")
+    lines = state.render(50).split("\n")
     assert len(lines) == 2
-    assert all(visible_len(line) <= 34 for line in lines)
+    assert all(visible_len(line) <= 50 for line in lines)
+    assert lines[0].startswith(f"{'m':<12} ")
+    assert lines[1].startswith(" " * 13)  # wrapped lamps stay in the value column
 
 
 def test_coordinate():
@@ -168,3 +171,34 @@ def test_range_bars_with_different_units_line_up():
         bar.update(50)
     assert speed.render(50).index("]") == torque.render(50).index("]")
     assert len(speed.render(50)) == len(torque.render(50)) == 50
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [
+        (18.627682319492283, "18.6277"),  # long floats are shortened
+        (0.1 + 0.2, "0.3"),
+        (1.5, "1.5"),
+        ("1.50", "1.50"),  # a device's own formatting is kept
+        (1234567.891, "1234568"),
+        (7, "7"),
+        ("OK", "OK"),
+    ],
+)
+def test_text_without_a_format_is_readable(value, shown):
+    text = TextElement("x")
+    text.update(value)
+    assert text.to_json() == shown
+
+
+def test_sparkline_keeps_recent_history():
+    spark = Sparkline("rate", points=3, units="/s", format=TextFormat(precision=1))
+    assert spark.to_json() == {"text": "-", "values": []}
+    for value in [1, 2, "3", 4]:
+        spark.update(value)
+    assert spark.to_json() == {"text": "4.0 /s", "values": [2.0, 3.0, 4.0]}
+    line = spark.render(30)
+    assert line.startswith(f"{'rate':<12} ▁▅█")
+    assert line.endswith(" 4.0 /s")
+    with pytest.raises(ValueError):
+        spark.update("fast")

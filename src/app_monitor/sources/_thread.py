@@ -17,13 +17,15 @@ _FINISHED = object()
 
 
 async def thread_items(
-    work: Callable[[Emit, threading.Event], None], name: str
+    work: Callable[[Emit, threading.Event], None], name: str, *, join: bool = True
 ) -> AsyncIterator[object]:
     """Run ``work(emit, stop)`` on a daemon thread and yield what it emits.
 
-    ``work`` must return soon after ``stop`` is set. If it raises, the
-    exception is raised here. Closing the iterator sets ``stop`` and waits for
-    the thread to finish.
+    ``work`` should return soon after ``stop`` is set. If it raises, the
+    exception is raised here. Closing the iterator sets ``stop`` and, if
+    ``join``, waits for the thread to finish. Pass ``join=False`` for work that
+    can block indefinitely (like reading stdin); its thread ends with the
+    process.
     """
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[object] = asyncio.Queue()
@@ -55,4 +57,5 @@ async def thread_items(
             yield item
     finally:
         stop.set()
-        await asyncio.to_thread(thread.join)
+        if join:
+            await asyncio.to_thread(thread.join)

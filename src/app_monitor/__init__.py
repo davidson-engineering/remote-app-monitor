@@ -1,21 +1,23 @@
-"""Live web and terminal dashboards for values streamed from devices.
+"""Live dashboards for values from your program, a device, or any process.
 
-A :class:`Monitor` holds elements (text, bars, lamps, tables, ...). Sources
-(serial, ZeroMQ, simulated) feed it updates keyed by element id, and outputs
-(web dashboard, terminal) display it::
+Quickest start, from inside a program::
 
-    monitor = Monitor()
-    monitor.add(TextElement("temperature", units="°C"))
-    await monitor.run(
-        sources=[SerialSource("/dev/ttyUSB0", decoder=CsvDecoder(["temperature"]))],
-        outputs=[WebDashboard()],
-    )
+    from app_monitor import start
+
+    monitor = start()                  # prints the dashboard's address
+    monitor.set("progress", 0.5)       # from any thread; elements appear as used
+
+A :class:`Monitor` holds elements (text, bars, lamps, charts, tables, ...).
+Sources (serial, ZeroMQ, stdin, simulated) and HTTP posts feed it updates
+keyed by element id, and outputs (web dashboard, terminal) display it. Other
+programs can send values with :class:`~app_monitor.client.Client`, or with
+``curl -d 'progress=5' http://127.0.0.1:8080/update``.
 """
 
 import importlib
-import logging
 from typing import TYPE_CHECKING, Any
 
+from .client import Client
 from .decoders import (
     BinaryFrameDecoder,
     CsvDecoder,
@@ -33,12 +35,14 @@ from .elements import (
     MachineState,
     ProgressBar,
     RangeBar,
+    Sparkline,
     Table,
     TextElement,
 )
 from .formatting import Style, TextFormat
-from .monitor import Group, Monitor, Output, Source, Update
+from .monitor import Group, Monitor, Output, Source, Update, start
 from .sources.simulated import SimulatedSource
+from .sources.stdin import StdinSource
 from .terminal import TerminalDisplay
 
 if TYPE_CHECKING:
@@ -47,8 +51,6 @@ if TYPE_CHECKING:
     from .web import WebDashboard
 
 __version__ = "0.2.0"
-
-logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Classes that need an optional dependency are imported on first use.
 _OPTIONAL = {
@@ -76,6 +78,7 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "BinaryFrameDecoder",
+    "Client",
     "Coordinate",
     "CsvDecoder",
     "DecodeError",
@@ -95,6 +98,8 @@ __all__ = [
     "SerialSource",
     "SimulatedSource",
     "Source",
+    "Sparkline",
+    "StdinSource",
     "Style",
     "Table",
     "TerminalDisplay",
@@ -104,4 +109,5 @@ __all__ = [
     "WebDashboard",
     "ZmqSource",
     "find_serial_port",
+    "start",
 ]

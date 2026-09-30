@@ -48,6 +48,8 @@
     .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
     .status .led { width: 10px; height: 10px; box-shadow: none; }
     html[data-connection="open"] .status .led { opacity: 1; background: var(--led-on); }
+    html[data-connection="open"][data-stale] .status .led { background: #f2a900; }
+    html[data-stale] .value { opacity: 0.45; }
 
     section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
     h2 { margin: 0; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--muted);
@@ -68,6 +70,15 @@
     .range .track { overflow: visible; position: relative; }
     .range .fill { background: none; border-right: 3px solid var(--bar); margin-right: -1.5px; border-radius: 0; }
 
+    .spark { display: grid; grid-template-columns: 1fr 11ch; gap: 12px; align-items: center; }
+    .spark > span { text-align: right; white-space: nowrap; }
+    .chart { height: 24px; color: var(--bar); }
+    .chart svg { display: block; }
+
+    .empty { padding: 24px 16px; color: var(--muted); }
+    .empty p { margin: 0 0 12px; }
+    .empty pre { padding: 12px; border-radius: 8px; background: var(--bg); color: var(--text); overflow-x: auto; white-space: pre; }
+
     .lamps { display: flex; flex-wrap: wrap; gap: 8px 16px; }
     .lamp { display: flex; align-items: center; gap: 6px; }
     .value .led { width: 12px; height: 12px; }
@@ -81,10 +92,16 @@
 <body>
   <main>
     <header>
-      <h1>Monitor</h1>
+      <h1 id="title">Monitor</h1>
       <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
     </header>
     <div id="dashboard"></div>
+    <template id="empty">
+      <section class="empty">
+        <p>Waiting for values. Anything you send appears here, for example:</p>
+        <pre data-example></pre>
+      </section>
+    </template>
   </main>
 
   <script>
@@ -119,6 +136,10 @@
               ...item.columns.map((column) => bound("td", `${item.id}.${row}.${column}`)))));
         case "LogMonitor":
           return bound("pre", item.id);
+        case "Sparkline":
+          return el("div", { className: "spark" },
+            bound("div", `${item.id}.values`, { className: "chart", dataset: { mode: "sparkline" } }),
+            bound("span", `${item.id}.text`));
         default:
           return el("span", {}, bound("span", item.id), item.units ? ` ${item.units}` : "");
       }
@@ -126,7 +147,18 @@
 
     const row = (item) => el("div", { className: "row" }, el("div", { className: "label" }, item.label), el("div", { className: "value" }, valueFor(item)));
 
+    function showEmptyState() {
+      const hint = document.getElementById("empty").content.cloneNode(true);
+      hint.querySelector("[data-example]").textContent =
+        `monitor.set("temperature", 21.5)          # from Python\n` +
+        `curl -d 'temperature=21.5' ${location.origin}/update`;
+      document.getElementById("dashboard").replaceChildren(hint);
+    }
+
     document.addEventListener("monitor:snapshot", ({ detail }) => {
+      document.getElementById("title").textContent = detail.title;
+      document.title = detail.title;
+      if (detail.layout.length === 0) return showEmptyState();
       const sections = [];
       let loose = null;
       for (const item of detail.layout) {
@@ -141,11 +173,18 @@
       document.getElementById("dashboard").replaceChildren(...sections);
     });
 
-    new MutationObserver(() => {
-      const state = document.documentElement.dataset.connection;
-      document.getElementById("connection").textContent =
-        { open: "Live", closed: "Disconnected, retrying" }[state] ?? "Connecting";
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-connection"] });
+    // "Live" when data is flowing; otherwise how long since the last value.
+    let age = null;
+    const ago = (seconds) => seconds < 90 ? `${Math.round(seconds)} s` : `${Math.round(seconds / 60)} min`;
+    function renderStatus() {
+      const root = document.documentElement;
+      const text = { closed: "Disconnected, retrying", connecting: "Connecting" }[root.dataset.connection]
+        ?? (root.dataset.stale ? `No data for ${ago(age)}`
+          : age === null || age < 3 ? "Live" : `Live, last update ${ago(age)} ago`);
+      document.getElementById("connection").textContent = text;
+    }
+    document.addEventListener("monitor:tick", ({ detail }) => { age = detail.age; renderStatus(); });
+    new MutationObserver(renderStatus).observe(document.documentElement, { attributes: true, attributeFilter: ["data-connection"] });
   </script>
   <script src="/_app_monitor/app_monitor.js"></script>
 </body>

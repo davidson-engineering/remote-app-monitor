@@ -35,7 +35,8 @@ def test_terminal_frame(monkeypatch):
     frame = TerminalDisplay(width=40).render(monitor).split("\n")
     assert frame[0] == "Speed: 5"
     assert frame[1] == "┌─ X ──────────────────────────────────┐"
-    assert frame[2].startswith("│ velocity   [") and frame[2].endswith("50.00 mm/s │")
+    assert frame[2].startswith(f"│ {'velocity':<12} [")
+    assert frame[2].endswith("50.00 mm/s │")
     assert frame[4] == "┌─ job ────────────────────────────────┐"
     assert "25.0%" in frame[5]
     assert all(len(line) == 40 for line in frame[1:7])
@@ -63,7 +64,9 @@ async def test_terminal_redraws_on_change_and_restores_screen():
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert out.getvalue().endswith("\x1b[?25h\x1b[?1049l")
+    restored = out.getvalue().rsplit("\x1b[?25h\x1b[?1049l", 1)
+    assert len(restored) == 2  # cursor shown, normal screen back
+    assert restored[1].startswith("Speed: 7")  # then the final frame, kept in view
 
 
 # -- web ------------------------------------------------------------------------
@@ -72,7 +75,8 @@ async def test_terminal_redraws_on_change_and_restores_screen():
 @pytest.fixture
 async def client():
     monitor = make_monitor()
-    async with TestClient(TestServer(WebDashboard(fps=200).app(monitor))) as client:
+    dashboard = WebDashboard(fps=200, title="Line 3", stale_after=2.5)
+    async with TestClient(TestServer(dashboard.app(monitor))) as client:
         client.monitor = monitor
         yield client
 
@@ -91,6 +95,7 @@ async def test_web_sends_snapshot_then_only_changes(client):
     ws = await client.ws_connect("/ws")
     snapshot = await ws.receive_json(timeout=1)
     assert snapshot["type"] == "snapshot"
+    assert (snapshot["title"], snapshot["staleAfter"]) == ("Line 3", 2.5)
     assert snapshot["values"]["machine"] == {"estop": False, "enabled": False}
     assert [item.get("id", item.get("group")) for item in snapshot["layout"]] == [
         "speed",
@@ -124,3 +129,121 @@ async def test_web_custom_page_and_static_dir(tmp_path):
 def test_web_rejects_missing_page(tmp_path):
     with pytest.raises(FileNotFoundError):
         WebDashboard(tmp_path / "nope.html")
+
+
+async def test_web_resends_layout_when_elements_appear(client):
+    ws = await client.ws_connect("/ws")
+    await ws.receive_json(timeout=1)
+    client.monitor.set("new.thing", 5)  # created on first use
+    message = await ws.receive_json(timeout=1)
+    assert message["type"] == "snapshot"
+    assert message["layout"][-1] == {
+        "group": "new",
+        "elements": [
+            {"id": "new.thing", "kind": "TextElement", "label": "thing", "units": ""}
+        ],
+    }
+    assert message["values"]["new.thing"] == "5"
+    await ws.close()
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (b'{"speed": 4, "X": {"velocity": 50}}', {"speed": 4, "X.velocity": 50.0}),
+        (b'[{"speed": 1}, {"speed": 2}]', {"speed": 2}),
+        (b"speed=5 new=hello", {"speed": "5", "new": "hello"}),
+        (b"speed 6\nlog motor 2 stalled\n", {"speed": "6", "log": "motor 2 stalled"}),
+    ],
+)
+async def test_web_accepts_posted_updates(client, body, expected):
+    response = await client.post("/update", data=body)
+    assert response.status == 204
+    for id, value in expected.items():
+        assert client.monitor[id].value == value
+
+
+@pytest.mark.parametrize("body", [b"", b"{nope", b"[1, 2]", b"hello"])
+async def test_web_rejects_bad_posts_with_a_reason(client, body):
+    response = await client.post("/update", data=body)
+    assert response.status == 400
+    assert (await response.text()).strip()
+
+
+async def test_web_token_protects_posting():
+    monitor = Monitor()
+    dashboard = WebDashboard(token="s3cret")
+    async with TestClient(TestServer(dashboard.app(monitor))) as client:
+        assert (await client.post("/update", data=b"a=1")).status == 401
+        wrong = {"Authorization": "Bearer nope"}
+        assert (await client.post("/update", data=b"a=1", headers=wrong)).status == 401
+        right = {"Authorization": "Bearer s3cret"}
+        assert (await client.post("/update", data=b"a=1", headers=right)).status == 204
+        assert (await client.get("/")).status == 200  # viewing stays open
+    assert monitor["a"].value == "1"
+
+
+def test_web_start_prints_its_address_and_explains_a_busy_port(capsys):
+    first = Monitor().start(outputs=[WebDashboard(port=0)])
+    try:
+        port = int(capsys.readouterr().err.split(":")[-1].strip(" /\n"))
+        assert port > 0
+        with pytest.raises(OSError, match=f"port {port} is already in use"):
+            Monitor().start(outputs=[WebDashboard(port=port)])
+    finally:
+        first.stop()
+    Monitor().start(outputs=[WebDashboard(port=port, announce=False)]).stop()
+
+
+async def test_a_program_that_exits_leaves_its_final_values_on_the_page():
+    """start()'s dashboard stops with the program: open pages must get the last
+    values sent just before exit, and be disconnected promptly."""
+    import subprocess
+    import sys
+    import time
+
+    import aiohttp
+
+    script = (
+        "import sys\n"
+        "from app_monitor import WebDashboard, start\n"
+        "monitor = start(outputs=[WebDashboard(port=0)])\n"
+        "sys.stdin.readline()  # wait for the test's page to connect\n"
+        "for i in range(1, 1001):\n"
+        "    monitor.set('n', i)\n"
+    )  # ...and exit straight away
+    program = await asyncio.create_subprocess_exec(
+        sys.executable, "-c", script, stdin=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    url = (await program.stderr.readline()).decode().split()[1]
+    last = None
+    async with aiohttp.ClientSession() as session, session.ws_connect(f"{url}ws") as ws:
+        await ws.receive_json(timeout=5)
+        program.stdin.write(b"go\n")
+        await program.stdin.drain()
+        started = time.monotonic()
+        async for message in ws:
+            last = message.json()["values"].get("n", last)
+    await program.communicate()
+    assert program.returncode == 0
+    assert last == "1000"
+    assert time.monotonic() - started < 3  # the page doesn't hold up the exit
+
+
+def test_terminal_labels_every_row_and_heads_blocks(monkeypatch):
+    from app_monitor import LogMonitor, Table
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda: os.terminal_size((80, 40)))
+    monitor = Monitor()
+    monitor.add(
+        TextElement("temperature", label="Temperature", units="°C"),
+        Table("error", label="Following error", rows=["X"], columns=["now"]),
+        LogMonitor("log", label="Log", lines=1),
+    )
+    monitor.update({"temperature": 21.5, "error.X.now": 1, "log": "hello"})
+    frame = TerminalDisplay().render(monitor).split("\n")
+    assert frame[0] == "Temperature  21.5 °C"
+    assert frame[1] == "\x1b[1mFollowing error\x1b[0m"
+    assert frame[2].startswith("┌")
+    assert frame[-2] == "\x1b[1mLog\x1b[0m"
+    assert frame[-1].rstrip() == "hello"
