@@ -1,72 +1,73 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "remote-app-monitor"
-description = "A_short_description"
-
-# If a project, then you can specify version here
-# version = "0.0.1"
-# If a module, then fetch version dynamically (see [tool.setuptools.dynamic] below)
+description = "Live web and terminal dashboards for values streamed from serial devices and ZeroMQ."
 dynamic = ["version"]
-
 readme = "README.md"
-requires-python = ">=3.9"
-license = { file = "LICENSE" }
-authors = [
-  { email = "matthew@davidson.engineering" },
-  { name = "Matthew Davidson" },
-]
-
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Matthew Davidson", email = "matthew@davidson.engineering" }]
 classifiers = [
-  "Development Status :: 1 - Planning",
-  "Operating System :: Microsoft :: Windows",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
+  "Development Status :: 3 - Alpha",
+  "Framework :: AsyncIO",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: System :: Monitoring",
+]
+dependencies = []
+
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+zmq = ["pyzmq>=26"]
+web = ["aiohttp>=3.10"]
+all = ["remote-app-monitor[serial,zmq,web]"]
+
+[project.urls]
+Repository = "https://github.com/davidson-engineering/remote-app-monitor"
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=5",
+  "ruff>=0.6",
 ]
 
-dependencies = [
-  "config-loader @ git+https://github.com/davidson-engineering/python-config-loader.git",
-  "tabulate>=0.9.0",
-  "zmq>=0.0.0",
-  "pyserial>=3.5",
-  "flask>=3",
-  "flask-socketio>=5",
-]
-
-# Use this line if your project comprises of modules only without any ./src/* files
-#[tool.setuptools]
-#py-modules = []
-
-# If a module, then use fetch version from src/module_name/__init__.py
 [tool.setuptools.dynamic]
 version = { attr = "app_monitor.__version__" }
 
-
-[project.optional-dependencies]
-test = ["pytest >= 8"]
-
+[tool.setuptools.package-data]
+app_monitor = ["web/static/**/*"]
 
 [tool.pytest.ini_options]
-#addopts = "--maxfail=1 -s"
-#console_output_style = "progress"
-#log_cli = false
-#log_level = "INFO"
-#log_cli_format = "%(asctime)s %(levelname)s %(message)s"
-#log_file = "logs/pytest-logs.txt"
-#log_file_level = "INFO"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--strict-markers"
+filterwarnings = ["error"]
 
-# [project.urls]
-# homepage = "https://example.com"
-# documentation = "https://readthedocs.org"
-# repository = "https://github.com"
-# changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+[tool.coverage.run]
+branch = true
+source = ["app_monitor"]
 
-# [project.scripts]
-# spam-cli = "spam:main_cli"
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
 
-# [project.gui-scripts]
-# spam-gui = "spam:main_gui"
+[tool.ruff]
+line-length = 88
+target-version = "py311"
 
-# [project.entry-points."spam.magical"]
-# tomatoes = "spam:main_tomatoes"
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
+ignore = [
+  "RUF001", # box-drawing and lamp glyphs in strings are intentional
+]

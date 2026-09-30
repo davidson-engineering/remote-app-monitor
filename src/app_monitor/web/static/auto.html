@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitor</title>
+  <link rel="stylesheet" href="/_app_monitor/panel.css">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --text: #1d2025;
+      --muted: #69707a;
+      --line: #e3e6ea;
+      --bar: #2f6fed;
+      --led-off: #cfd3d8;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111315;
+        --card: #1b1e21;
+        --text: #e8eaed;
+        --muted: #9aa1a9;
+        --line: #2c3034;
+        --bar: #6ea0ff;
+        --led-off: #3b3f44;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    main, #dashboard { display: grid; gap: 16px; }
+    main { max-width: 720px; margin: 0 auto; }
+
+    header { display: flex; align-items: center; justify-content: space-between; }
+    h1 { margin: 0; font-size: 20px; font-weight: 600; }
+
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+    .status .led { width: 10px; height: 10px; box-shadow: none; }
+    html[data-connection="open"] .status .led { opacity: 1; background: var(--led-on); }
+
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+    h2 { margin: 0; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--muted);
+         text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--line); }
+
+    .row { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 16px;
+           align-items: center; padding: 10px 16px; }
+    .row + .row { border-top: 1px solid var(--line); }
+    .label { color: var(--muted); overflow-wrap: anywhere; }
+    .value { font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+
+    /* Fixed-width readout so the track doesn't jitter as the digits change. */
+    .meter { display: grid; grid-template-columns: 1fr 11ch; gap: 12px; align-items: center; }
+    .meter > span { text-align: right; white-space: nowrap; }
+    .track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+    .fill { height: 100%; width: 0; background: var(--bar); transition: width 80ms linear; }
+    /* A range shows where the value sits, not how full it is. */
+    .range .track { overflow: visible; position: relative; }
+    .range .fill { background: none; border-right: 3px solid var(--bar); margin-right: -1.5px; border-radius: 0; }
+
+    .lamps { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .lamp { display: flex; align-items: center; gap: 6px; }
+    .value .led { width: 12px; height: 12px; }
+
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 4px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+    pre { margin: 0; font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Monitor</h1>
+      <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
+    </header>
+    <div id="dashboard"></div>
+  </main>
+
+  <script>
+    const el = (tag, { dataset = {}, ...props } = {}, ...children) => {
+      const node = Object.assign(document.createElement(tag), props);
+      Object.assign(node.dataset, dataset);
+      node.append(...children);
+      return node;
+    };
+    const bound = (tag, key, { dataset = {}, ...props } = {}) =>
+      el(tag, { ...props, dataset: { bind: key, ...dataset } });
+
+    function valueFor(item) {
+      switch (item.kind) {
+        case "IndicatorLamp":
+          return el("div", { className: "lamps" }, bound("div", item.id, { className: "led", dataset: { mode: "state" } }));
+        case "MachineState":
+          return el("div", { className: "lamps" }, ...item.states.map((state) =>
+            el("span", { className: "lamp" }, bound("span", `${item.id}.${state}`, { className: "led", dataset: { mode: "state" } }), state)));
+        case "ProgressBar":
+        case "RangeBar":
+          return el("div", { className: item.kind === "RangeBar" ? "meter range" : "meter" },
+            el("div", { className: "track" }, bound("div", `${item.id}.ratio`, { className: "fill", dataset: { mode: "width" } })),
+            bound("span", `${item.id}.text`));
+        case "Coordinate":
+          return el("div", { className: "lamps" }, ...item.axes.map((axis) =>
+            el("span", {}, `${axis.toUpperCase()} `, bound("span", `${item.id}.${axis}`), item.units ? ` ${item.units}` : "")));
+        case "Table":
+          return el("table", {},
+            el("tr", {}, el("th"), ...item.columns.map((column) => el("th", {}, column))),
+            ...item.rows.map((row) => el("tr", {}, el("td", {}, row),
+              ...item.columns.map((column) => bound("td", `${item.id}.${row}.${column}`)))));
+        case "LogMonitor":
+          return bound("pre", item.id);
+        default:
+          return el("span", {}, bound("span", item.id), item.units ? ` ${item.units}` : "");
+      }
+    }
+
+    const row = (item) => el("div", { className: "row" }, el("div", { className: "label" }, item.label), el("div", { className: "value" }, valueFor(item)));
+
+    document.addEventListener("monitor:snapshot", ({ detail }) => {
+      const sections = [];
+      let loose = null;
+      for (const item of detail.layout) {
+        if (item.group) {
+          loose = null;
+          sections.push(el("section", {}, el("h2", {}, item.group), ...item.elements.map(row)));
+        } else {
+          if (!loose) sections.push((loose = el("section")));
+          loose.append(row(item));
+        }
+      }
+      document.getElementById("dashboard").replaceChildren(...sections);
+    });
+
+    new MutationObserver(() => {
+      const state = document.documentElement.dataset.connection;
+      document.getElementById("connection").textContent =
+        { open: "Live", closed: "Disconnected, retrying" }[state] ?? "Connecting";
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-connection"] });
+  </script>
+  <script src="/_app_monitor/app_monitor.js"></script>
+</body>
+</html>

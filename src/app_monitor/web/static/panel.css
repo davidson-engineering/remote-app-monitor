@@ -1,0 +1,130 @@
+/*
+ * Segment-display (LCD/VFD) fields and indicator LEDs for app_monitor dashboards.
+ *
+ *   <div class="lcd">
+ *     <span class="lcd-field" data-ghost="~~~~~~.~~~"><span data-bind="position_x"></span></span>
+ *   </div>
+ *   <div class="led" data-bind="machine.estop" data-mode="state"></div>
+ *
+ * data-ghost draws the unlit segments behind the value ("~" lights every
+ * segment in DSEG14, "8" in DSEG7). Value and ghost are right-aligned, so decimal
+ * points line up when the value has as many decimals as the ghost; add
+ * .lcd-field-left for text. While the page is disconnected, values and LEDs dim
+ * so stale readings are not mistaken for live ones.
+ */
+
+@font-face {
+  font-family: "DSEG14 Modern";
+  src: url("fonts/DSEG14Modern-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "DSEG14 Modern";
+  src: url("fonts/DSEG14Modern-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "DSEG7 Modern Mini";
+  src: url("fonts/DSEG7ModernMini-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+:root {
+  --lcd-background: hsl(223 86% 28%);
+  --lcd-bezel: #0b0b0c;
+  --lcd-lit: hsl(179 96% 82%);
+  --lcd-unlit: hsl(208 82% 51% / 0.1);
+  --lcd-glow: 0 0 6px hsl(200 85% 53% / 0.5), 0 0 12px hsl(207 88% 53% / 0.3);
+  --led-off: #3b3f44;
+  --led-on: #00d207;
+  --led-on-glow: #69fa6e;
+}
+
+.lcd {
+  position: relative;
+  overflow: hidden;
+  padding: 8px 12px;
+  font-family: "DSEG14 Modern", monospace;
+  line-height: 1.25;
+  background: var(--lcd-background);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 6px var(--lcd-bezel),
+    inset 0 0 4px rgb(0 0 0 / 0.3),
+    0 0 24px 6px rgb(22 70 158 / 0.8);
+}
+
+/* Glass reflection. */
+.lcd::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0));
+  pointer-events: none;
+}
+
+.lcd-field {
+  display: grid;
+  white-space: pre;
+}
+
+.lcd-field::before,
+.lcd-field > * {
+  grid-area: 1 / 1;
+  justify-self: end;
+}
+
+.lcd-field::before {
+  content: attr(data-ghost);
+  color: var(--lcd-unlit);
+  text-shadow: var(--lcd-glow);
+}
+
+.lcd-field > * {
+  color: var(--lcd-lit);
+  text-shadow: var(--lcd-glow);
+  -webkit-text-stroke: hsl(190 80% 50%) 0.011em;
+  transition: opacity 150ms;
+}
+
+.lcd-field-left::before,
+.lcd-field-left > * {
+  justify-self: start;
+}
+
+.led {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--led-off);
+  box-shadow:
+    inset -2px -2px 4px rgb(0 0 0 / 0.45),
+    inset 2px 2px 4px rgb(255 255 255 / 0.3);
+  transition: background-color 80ms, box-shadow 80ms, opacity 150ms;
+}
+
+.led[data-state="on"] {
+  background: var(--led-on);
+  box-shadow:
+    inset -2px -2px 4px rgb(0 0 0 / 0.35),
+    inset 2px 2px 4px rgb(255 255 255 / 0.6),
+    0 0 10px var(--led-on-glow);
+}
+
+.led-red {
+  --led-on: #ff3b30;
+  --led-on-glow: #ff8a80;
+}
+
+.led-amber {
+  --led-on: #ffb300;
+  --led-on-glow: #ffd54f;
+}
+
+html:not([data-connection="open"]) .lcd-field > *,
+html:not([data-connection="open"]) .led {
+  opacity: 0.3;
+}
