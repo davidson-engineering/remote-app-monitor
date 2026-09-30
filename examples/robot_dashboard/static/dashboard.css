@@ -158,3 +158,14 @@ html[data-connection="open"] .link-state::after {
 html[data-connection="closed"] .link-state::after {
   content: "No link";
 }
+
+/* Connected, but the device has gone quiet (stale_after in dashboard.py). */
+html[data-connection="open"][data-stale] .link .led {
+  --led-on: #ffb300;
+  --led-on-glow: #ffd54f;
+  opacity: 1;
+}
+
+html[data-connection="open"][data-stale] .link-state::after {
+  content: "No data";
+}

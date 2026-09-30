@@ -9,8 +9,6 @@ the values in the order of FIELDS; see examples/fake_device.py for a stand-in.
 """
 
 import argparse
-import asyncio
-import contextlib
 import logging
 import math
 from pathlib import Path
@@ -122,9 +120,9 @@ def main() -> None:
         static_dir=HERE / "static",
         host=args.host,
         port=args.http_port,
+        stale_after=2,  # the device streams continuously; silence means trouble
     )
-    with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(build_monitor().run(sources=[feed], outputs=[dashboard]))
+    build_monitor().serve(sources=[feed], outputs=[dashboard])
 
 
 if __name__ == "__main__":
