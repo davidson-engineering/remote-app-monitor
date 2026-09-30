@@ -15,7 +15,8 @@ other projects get the same instructions.
 
 ```bash
 uv sync --all-extras                    # venv with every extra and dev tool
-uv run pytest                           # ~160 tests, ~7 s
+uv run playwright install chromium      # once: the browser tests need it
+uv run pytest                           # ~210 tests, ~15 s (-m "not browser" skips Chromium)
 uv run ruff check . && uv run ruff format --check .
 uv run app-monitor --demo               # see the generic page with every element type
 uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-page example
@@ -60,8 +61,12 @@ uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-pa
 ## Tests
 
 - Prefer end to end: pseudo-terminal serial ports (`tests/conftest.py`),
-  real ZeroMQ sockets, real WebSockets (`aiohttp.test_utils`), and the CLI as
-  a subprocess. Use `port=0` and `announce=False` for dashboards in tests.
+  real ZeroMQ sockets, real WebSockets (`aiohttp.test_utils`), the CLI as a
+  subprocess, and a real browser for `app_monitor.js` (`tests/test_browser.py`,
+  marked `browser`). Use `port=0` and `announce=False` for dashboards in tests.
+- Browser tests use Playwright's async API. Not pytest-playwright: its sync
+  fixtures run their own event loop and break every pytest-asyncio test that
+  runs after them.
 - `filterwarnings = error`: close every socket, pipe, file and HTTP error
   response, or the test fails.
 - Serial tests need pseudo-terminals and skip on Windows. CI runs Linux,

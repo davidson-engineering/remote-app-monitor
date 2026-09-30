@@ -4,13 +4,15 @@
 
 ```bash
 uv sync --all-extras
+uv run playwright install chromium    # once, for the browser tests
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
 The serial tests use pseudo-terminals, so they run on macOS and Linux and are
 skipped on Windows. CI runs everything on Linux, macOS and Windows for each
-supported Python version.
+supported Python version, except the browser tests (`-m browser`), which run
+once, in Chromium on Linux: the page's JavaScript is the same everywhere.
 
 ## Releasing
 
