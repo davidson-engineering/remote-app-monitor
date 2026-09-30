@@ -30,7 +30,7 @@ uv run python examples/robot_dashboard/dashboard.py --simulate   # the custom-pa
 | `src/app_monitor/elements.py` | element types; each has `update`, `to_json` (browser) and `render(width)` (terminal) |
 | `src/app_monitor/decoders.py` | bytes to `{id: value}`: CSV, key/value + logfmt pairs, JSON, binary frames |
 | `src/app_monitor/sources/` | serial, ZeroMQ, stdin, simulated; `_thread.py` runs blocking I/O off the event loop |
-| `src/app_monitor/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `app_monitor.js` (data-bind client), `panel.css` (LCD/LED styles), `auto.html` (generic page), fonts |
+| `src/app_monitor/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `app_monitor.js` (data-bind client: text, `state`, `width`, `sparkline`, `var`, `data-stale-after`), `panel.css` (LCD/LED styles), `auto.html` (generic page), fonts |
 | `src/app_monitor/terminal.py` | full-screen terminal output |
 | `src/app_monitor/client.py` | stdlib-only HTTP client for other processes |
 | `src/app_monitor/cli.py`, `demo.py` | the `app-monitor` command and `--demo` data |

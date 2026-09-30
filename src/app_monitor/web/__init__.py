@@ -217,6 +217,7 @@ class WebDashboard:
             "staleAfter": self.stale_after,
             "layout": monitor.describe(),
             "values": monitor.snapshot(),
+            "ages": monitor.ages(),
         }
 
     async def _websocket(self, request: web.Request) -> web.WebSocketResponse:

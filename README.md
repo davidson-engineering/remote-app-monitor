@@ -17,7 +17,7 @@ can make an HTTP request. Send values by name and they appear in the browser
   stalled device can't freeze it.
 - **Honest about staleness.** Pages reconnect by themselves, show how old the
   data is, and dim values while disconnected or (optionally) when a source
-  goes quiet.
+  goes quiet; a page fed by several sources can show which one stopped.
 - **Plain HTML dashboards.** Mark any element `data-bind="<id>"` and it stays
   live, like the segment-display panel above. Otherwise a clean generic page
   is generated.
@@ -120,7 +120,7 @@ monitor.start()
 | Element | Shows | Update with |
 | --- | --- | --- |
 | `TextElement` | a value, optionally scaled and number-formatted | any value |
-| `Sparkline` | a number and a chart of its recent history | a number |
+| `Sparkline` | a number and a chart of its recent history (`interval=1`: one point a second, for longer spans of fast values) | a number |
 | `ProgressBar` | a filling bar from 0 to `total` | a number |
 | `RangeBar` | a marker on a min to max track | a number |
 | `IndicatorLamp` | on/off | `True`/`False`, `1`/`0`, `on`/`off` |
@@ -211,6 +211,8 @@ loads `/_app_monitor/app_monitor.js` and marks up elements:
 <div class="led" data-bind="machine.estop" data-mode="state"></div>    <!-- data-state="on"/"off" -->
 <div class="bar" data-bind="X.velocity.ratio" data-mode="width"></div> <!-- width: 0-100% -->
 <div data-bind="rate.values" data-mode="sparkline"></div>              <!-- line chart -->
+<div class="dial" data-bind="pressure.ratio" data-mode="var"></div>    <!-- CSS variable --value -->
+<span data-bind="wind" data-stale-after="3"></span>                    <!-- data-stale="true" once quiet -->
 
 <!-- A segment display: data-ghost draws the unlit segments. -->
 <div class="lcd">
@@ -219,6 +221,13 @@ loads `/_app_monitor/app_monitor.js` and marks up elements:
 
 <script src="/_app_monitor/app_monitor.js"></script>
 ```
+
+`data-mode="var"` sets the CSS variable `--value` to the number, so CSS alone
+can draw a needle (`rotate: calc(var(--value) * 270deg)`) or a fill level
+(`height: calc(var(--value) * 100%)`). `data-stale-after="<seconds>"` marks an
+element `data-stale="true"` while its value hasn't arrived for that long, so a
+page fed by several sources can show which one has gone quiet
+(`stale_after` does this for the page as a whole).
 
 Object values are flattened, so a `RangeBar` binds as `<id>.text` and
 `<id>.ratio`, a `Sparkline` as `<id>.text` and `<id>.values`, and a
@@ -272,7 +281,8 @@ install beyond [uv](https://docs.astral.sh/uv/):
   `async def flush(monitor)` to deliver the last values before
   `Monitor.stop()` shuts down. Use
   `await monitor.wait_for_change(version)` and
-  `monitor.changes_since(version)` to react to new data.
+  `monitor.changes_since(version)` to react to new data, and
+  `monitor.ages()` for how long ago each element was updated.
 
 ## For AI coding agents
 

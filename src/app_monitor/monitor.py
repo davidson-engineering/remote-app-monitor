@@ -17,6 +17,7 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import dataclass, field
+from time import monotonic
 from typing import Any, Protocol, Self, TypeVar
 
 from .elements import JSON, Element, IndicatorLamp, TextElement
@@ -88,6 +89,7 @@ class Monitor:
         self.rejected = 0
         self._elements: dict[str, Element] = {}
         self._versions: dict[str, int] = {}
+        self._updated: dict[str, float] = {}  # id -> monotonic() of last update
         self._groups: dict[str, Group] = {}
         self._routes: dict[str, tuple[Element, str | None]] = {}
         self._reported: set[str] = set()
@@ -215,6 +217,9 @@ class Monitor:
                 if element := self._apply(key, value):
                     changed.append(element.id)
         if changed:
+            now = monotonic()
+            for id in changed:
+                self._updated[id] = now
             self._mark_changed(changed)
 
     def _apply(self, key: str, value: Any) -> Element | None:
@@ -298,6 +303,15 @@ class Monitor:
     def snapshot(self) -> dict[str, JSON]:
         """``to_json()`` of every element."""
         return {id: element.to_json() for id, element in self._elements.items()}
+
+    def ages(self) -> dict[str, float | None]:
+        """Seconds since each element was last updated (None if never), for
+        telling a value that is still arriving from one that stopped."""
+        now = monotonic()
+        return {
+            id: None if (updated := self._updated.get(id)) is None else now - updated
+            for id in self._elements
+        }
 
     def describe(self) -> list[dict[str, JSON]]:
         """Layout and element metadata, for building a display."""

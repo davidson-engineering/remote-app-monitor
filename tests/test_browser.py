@@ -5,6 +5,8 @@ Needs Chromium once: ``uv run playwright install chromium``. Uses Playwright's
 async API, so these run alongside the other asyncio tests in one session.
 """
 
+import asyncio
+
 import pytest
 from playwright.async_api import async_playwright, expect
 
@@ -14,6 +16,7 @@ from app_monitor import (
     ProgressBar,
     RangeBar,
     Sparkline,
+    TextElement,
     WebDashboard,
 )
 
@@ -98,6 +101,71 @@ async def test_sparkline_binding_draws_the_history(page, serve):
     await expect(page.locator("#chart polyline")).to_have_attribute(
         "points", "0.00,19.00 50.00,1.00 100.00,10.00"
     )
+
+
+async def test_var_binding_hands_numbers_to_css(page, serve):
+    monitor = Monitor()
+    monitor.add(RangeBar("q", max_value=40), TextElement("pitch"), IndicatorLamp("lit"))
+    await page.goto(
+        serve(
+            '<div id="q" data-bind="q.ratio" data-mode="var"></div>'
+            '<div id="pitch" data-bind="pitch" data-mode="var"></div>'
+            '<div id="lit" data-bind="lit" data-mode="var"></div>',
+            monitor,
+            css="#q { width: calc(var(--value) * 200px) }"
+            "#pitch { rotate: calc(var(--value, 90) * 1deg) }",
+        )
+    )
+    monitor.update({"q": 10, "pitch": "+45.5", "lit": True})
+    await expect(page.locator("#q")).to_have_css("width", "50px")  # ratio 0.25
+    await expect(page.locator("#pitch")).to_have_css("rotate", "45.5deg")  # device text
+    await expect(page.locator("#lit")).to_have_css("--value", "1")
+
+    monitor.set("pitch", "n/a")  # not a number: CSS falls back
+    await expect(page.locator("#pitch")).to_have_css("rotate", "90deg")
+
+
+async def test_stale_after_flags_a_value_that_stopped_arriving(page, serve):
+    monitor = Monitor()
+    monitor.add(TextElement("wind"), TextElement("tide"))
+    url = serve(
+        '<span id="wind" data-bind="wind" data-stale-after="1"></span>'
+        '<span id="tide" data-bind="tide" data-stale-after="1"></span>'
+        '<span id="plain" data-bind="wind"></span>',
+        monitor,
+    )
+    await page.goto(url)
+    wind, tide = page.locator("#wind"), page.locator("#tide")
+    await expect(tide).to_have_attribute("data-stale", "true")  # nothing ever arrived
+    await expect(wind).to_have_attribute("data-stale", "true")
+
+    for _ in range(8):  # a steady value still counts as arriving
+        monitor.set("wind", 12)
+        await asyncio.sleep(0.25)
+        await expect(wind).not_to_have_attribute("data-stale", "true")
+    await expect(wind).to_have_attribute("data-stale", "true")  # stopped arriving
+    await expect(page.locator("#plain")).not_to_have_attribute("data-stale", "true")
+
+    await page.reload()  # a fresh page knows how old the values are
+    await expect(wind).to_have_text("12")
+    await expect(wind).to_have_attribute("data-stale", "true")
+    monitor.set("wind", 14)
+    await expect(wind).not_to_have_attribute("data-stale", "true")
+
+
+async def test_stale_after_holds_while_the_page_is_disconnected(page, serve):
+    """Cut off from the dashboard, the page can't tell whether values still
+    arrive there, so it doesn't claim they stopped."""
+    monitor = Monitor()
+    body = '<span id="wind" data-bind="wind" data-stale-after="2"></span>'
+    await page.goto(serve(body, monitor))
+    wind = page.locator("#wind")
+    monitor.set("wind", 12)
+    await expect(wind).not_to_have_attribute("data-stale", "true")
+    monitor.stop()
+    await expect(page.locator("html")).to_have_attribute("data-connection", "closed")
+    await asyncio.sleep(3)
+    await expect(wind).not_to_have_attribute("data-stale", "true")
 
 
 async def test_page_marks_quiet_sources_and_a_lost_connection(page, serve):

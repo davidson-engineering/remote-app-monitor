@@ -142,6 +142,22 @@ def test_versions_track_what_changed():
     assert monitor.version == start + 2  # rejected updates don't count as changes
 
 
+def test_ages_say_how_long_ago_each_element_was_updated(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr("app_monitor.monitor.monotonic", lambda: now[0])
+    monitor = make_monitor()
+    monitor.update({"speed": 1})
+    now[0] = 102.5
+    monitor.update({"X.velocity": 2}, {"X.torque": "fast"})  # torque is rejected
+    now[0] = 103.0
+    ages = monitor.ages()
+    assert ages["speed"] == 3.0
+    assert ages["X.velocity"] == 0.5
+    assert ages["X.torque"] is None  # never updated
+    monitor.update({"speed": 1})  # the same value again still counts
+    assert monitor.ages()["speed"] == 0.0
+
+
 async def test_wait_for_change():
     monitor = make_monitor()
     now = monitor.version
