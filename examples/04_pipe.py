@@ -4,7 +4,7 @@
 # ///
 """Pipe a program into a dashboard: no dashboard code in the program at all.
 
-    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --open
+    uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web]" sightglass --open
 
 (or, with the package installed:  python examples/04_pipe.py | sightglass --open)
 

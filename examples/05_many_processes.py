@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
+#     "sightglass[web]",
 # ]
 # ///
 """Many processes, one dashboard: workers report with the HTTP client.

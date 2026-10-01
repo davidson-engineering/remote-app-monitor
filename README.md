@@ -5,24 +5,24 @@ can make an HTTP request. Send values by name and they appear in the browser
 (or the terminal) as they change: a window onto a running system, like the
 sight glass on a tank.
 
-![Launch control: a rocket launch shown live, with a countdown clock, gauges, engine lamps, propellant tanks, a go/no-go poll, weather and an event log](docs/launch-control.png)
+![Launch control: a rocket launch shown live, with a countdown clock, gauges, engine lamps, propellant tanks, a go/no-go poll, weather and an event log](https://raw.githubusercontent.com/davidson-engineering/sightglass/main/docs/launch-control.png)
 
 That's the launch control demo; run it with one command:
 
 ```bash
-uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --open
+uvx --from "sightglass[web]" sightglass --demo launch --open
 ```
 
 It's a plain HTML page fed live by three separate programs: an in-process
 source, another process using `Client`, and plain HTTP posts. Its gauges,
 tanks and lamps are drawn by CSS from the values; the page has no JavaScript
-of its own. The source is in [src/sightglass/launch/](src/sightglass/launch/).
+of its own. The source is in [src/sightglass/launch/](https://github.com/davidson-engineering/sightglass/tree/main/src/sightglass/launch).
 
 Add `--theme terminal` for a phosphor-terminal look ([themes](#themes)), or
 `--terminal` and the same launch is drawn in the terminal as well, laid out by
-a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
+a screen function of its own ([screen.py](https://github.com/davidson-engineering/sightglass/blob/main/src/sightglass/launch/screen.py)):
 
-![The launch control demo drawn in a terminal: a segment countdown clock, charts, gauges, engine lamps, tanks, the poll, weather and the event log](docs/launch-terminal.png)
+![The launch control demo drawn in a terminal: a segment countdown clock, charts, gauges, engine lamps, tanks, the poll, weather and the event log](https://raw.githubusercontent.com/davidson-engineering/sightglass/main/docs/launch-terminal.png)
 
 - **One line to start.** `start()` serves a dashboard in the background and
   prints its address; `monitor.set("progress", 5)` works from any thread, and
@@ -49,12 +49,6 @@ Requires Python 3.11+.
 
 ```bash
 pip install "sightglass[web]"        # add serial, zmq, ads, or use [all]
-```
-
-Until the first PyPI release, install from GitHub:
-
-```bash
-pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
 Try it: `sightglass --demo launch --open` runs the page above;
@@ -237,7 +231,7 @@ their PLC names. Structs and arrays become one value per member
 variables are looked up again whenever a new program is downloaded.
 
 For a lasting dashboard, describe the PLC in an interface file, with the
-types pasted from the PLC project ([examples/plc.toml](examples/plc.toml) is
+types pasted from the PLC project ([examples/plc.toml](https://github.com/davidson-engineering/sightglass/blob/main/examples/plc.toml) is
 a commented one):
 
 ```toml
@@ -354,7 +348,7 @@ of each half second, so a fast swing isn't lost, and booleans and on/off chart
 as steps. Type to filter by id; `` ` `` or Escape closes it. It streams over a
 WebSocket of its own (`/ws/signals`) only while open.
 
-![The signals panel over the launch demo: every id with its value and a chart of the last minute, from the end of the countdown through liftoff](docs/signals-panel.png)
+![The signals panel over the launch demo: every id with its value and a chart of the last minute, from the end of the countdown through liftoff](https://raw.githubusercontent.com/davidson-engineering/sightglass/main/docs/signals-panel.png)
 
 #### Themes
 
@@ -367,7 +361,7 @@ rounded corners and glass) and moving (a power-on that draws each panel
 and types its name, the refresh rolling down the screen, a faint flicker); the
 moving ones are left out for anyone whose system asks for reduced motion.
 
-![The launch demo in the terminal theme: green phosphor text, double-ruled panels, an inverted status bar, cockpit-style gauges, checklists and dot leaders](docs/launch-terminal-theme.png)
+![The launch demo in the terminal theme: green phosphor text, double-ruled panels, an inverted status bar, cockpit-style gauges, checklists and dot leaders](https://raw.githubusercontent.com/davidson-engineering/sightglass/main/docs/launch-terminal-theme.png)
 
 `--theme terminal` or `WebDashboard(theme="terminal")` sets the default; a
 switch on the page lets each viewer change it, and their browser remembers.
@@ -421,23 +415,23 @@ PLC from other machines needs the tunnel or proxy too.
 
 ## Examples
 
-[examples/](examples/README.md) is a gallery where each example shows one way
+[examples/](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md) is a gallery where each example shows one way
 to feed a dashboard and runs with a single command, with nothing to clone or
 install beyond [uv](https://docs.astral.sh/uv/):
 
 | Example | Shows | |
 | --- | --- | --- |
-| Demo | every kind of display | `uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo --open` |
-| Launch control | the page above: a custom panel fed by three programs | [run](examples/README.md#the-showcase-launch-control) |
-| 1. Hello | a Python program with `start()` and `set()` | [run](examples/README.md#1-hello-dashboard) |
-| 2. System monitor | this computer, live: charts, bars, a table | [run](examples/README.md#2-system-monitor) |
-| 3. From the shell | any language, over HTTP with curl | [run](examples/README.md#3-from-the-shell) |
-| 4. Pipe | a program's printed output | [run](examples/README.md#4-pipe-a-programs-output) |
-| 5. Many processes | several programs, one dashboard, with `Client` | [run](examples/README.md#5-many-processes-one-dashboard) |
-| 6. Docker | deployed as a service, fed over the network | [run](examples/README.md#6-deploy-with-docker) |
-| 7. Terminal | drawn in the terminal | [run](examples/README.md#7-in-the-terminal) |
-| 8. Custom panel | a segment-display panel, over serial | [run](examples/README.md#8-a-custom-panel-and-a-serial-device) |
-| 9. Beckhoff PLC | a TwinCAT PLC over ADS, from an interface file | [run](examples/README.md#9-a-beckhoff-plc-over-ads) |
+| Demo | every kind of display | `uvx --from "sightglass[web]" sightglass --demo --open` |
+| Launch control | the page above: a custom panel fed by three programs | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#the-showcase-launch-control) |
+| 1. Hello | a Python program with `start()` and `set()` | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#1-hello-dashboard) |
+| 2. System monitor | this computer, live: charts, bars, a table | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#2-system-monitor) |
+| 3. From the shell | any language, over HTTP with curl | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#3-from-the-shell) |
+| 4. Pipe | a program's printed output | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#4-pipe-a-programs-output) |
+| 5. Many processes | several programs, one dashboard, with `Client` | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#5-many-processes-one-dashboard) |
+| 6. Docker | deployed as a service, fed over the network | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#6-deploy-with-docker) |
+| 7. Terminal | drawn in the terminal | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#7-in-the-terminal) |
+| 8. Custom panel | a segment-display panel, over serial | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#8-a-custom-panel-and-a-serial-device) |
+| 9. Beckhoff PLC | a TwinCAT PLC over ADS, from an interface file | [run](https://github.com/davidson-engineering/sightglass/blob/main/examples/README.md#9-a-beckhoff-plc-over-ads) |
 
 ## Extending
 
@@ -471,7 +465,7 @@ line like this to that project's `CLAUDE.md` or `AGENTS.md`:
 - Live dashboards for this project: `sightglass`; run `sightglass --guide` before building one.
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
+See [CONTRIBUTING.md](https://github.com/davidson-engineering/sightglass/blob/main/CONTRIBUTING.md) for development and releases.
 
 ## License
 

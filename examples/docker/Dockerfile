@@ -2,8 +2,7 @@
 # (other containers, other machines) feeds it with POST /update.
 FROM python:3.13-slim
 
-RUN pip install --no-cache-dir \
-    "sightglass[web] @ https://github.com/davidson-engineering/sightglass/archive/refs/heads/main.zip"
+RUN pip install --no-cache-dir "sightglass[web]"
 
 EXPOSE 8080
 HEALTHCHECK --interval=5s --timeout=3s \

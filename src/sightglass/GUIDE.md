@@ -10,8 +10,6 @@ creates its display. Print this guide from any project with
 
 ```bash
 pip install "sightglass[web]"     # add serial / zmq / ads extras as needed, or [all]
-# until it is on PyPI:
-pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
 Python 3.11+. The package has no required dependencies; `[web]` adds

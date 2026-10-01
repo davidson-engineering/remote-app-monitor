@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
+#     "sightglass[web]",
 #     "psutil>=5.9",
 # ]
 # ///
