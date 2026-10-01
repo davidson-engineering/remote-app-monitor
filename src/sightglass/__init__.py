@@ -8,7 +8,7 @@ Quickest start, from inside a program::
     monitor.set("progress", 0.5)       # from any thread; elements appear as used
 
 A :class:`Monitor` holds elements (text, bars, lamps, charts, tables, ...).
-Sources (serial, ZeroMQ, stdin, simulated) and HTTP posts feed it updates
+Sources (serial, ZeroMQ, PLCs over ADS, stdin, simulated) and HTTP posts feed it updates
 keyed by element id, and outputs (web dashboard, terminal) display it. Other
 programs can send values with :class:`~sightglass.client.Client`, or with
 ``curl -d 'progress=5' http://127.0.0.1:8080/update``.
@@ -40,12 +40,13 @@ from .elements import (
     TextElement,
 )
 from .formatting import Style, TextFormat
-from .monitor import Group, Monitor, Output, Source, Update, start
+from .monitor import Group, Monitor, Output, Source, Update, WriteError, start
 from .sources.simulated import SimulatedSource
 from .sources.stdin import StdinSource
 from .terminal import TerminalDisplay
 
 if TYPE_CHECKING:
+    from .sources.ads import AdsSource
     from .sources.serialport import SerialSource, find_serial_port
     from .sources.zeromq import ZmqSource
     from .web import WebDashboard
@@ -54,6 +55,7 @@ __version__ = "0.2.0"
 
 # Classes that need an optional dependency are imported on first use.
 _OPTIONAL = {
+    "AdsSource": (".sources.ads", "ads"),
     "SerialSource": (".sources.serialport", "serial"),
     "find_serial_port": (".sources.serialport", "serial"),
     "ZmqSource": (".sources.zeromq", "zmq"),
@@ -67,7 +69,7 @@ def __getattr__(name: str) -> Any:
     module, extra = _OPTIONAL[name]
     try:
         value = getattr(importlib.import_module(module, __name__), name)
-    except ImportError as error:
+    except ModuleNotFoundError as error:
         raise ImportError(
             f"{name} needs an optional dependency: "
             f"pip install 'sightglass[{extra}]' ({error})"
@@ -77,6 +79,7 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "AdsSource",
     "BinaryFrameDecoder",
     "Client",
     "Coordinate",
@@ -107,6 +110,7 @@ __all__ = [
     "TextFormat",
     "Update",
     "WebDashboard",
+    "WriteError",
     "ZmqSource",
     "find_serial_port",
     "start",

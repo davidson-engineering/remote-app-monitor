@@ -28,7 +28,7 @@ a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
   prints its address; `monitor.set("progress", 5)` works from any thread, and
   elements appear the first time you use them.
 - **No code needed.** Pipe a program into `sightglass`, `curl` values to it,
-  or point it at a serial port or ZeroMQ socket.
+  or point it at a serial port, a ZeroMQ socket or a Beckhoff PLC.
 - **Any language.** `POST /update` with JSON or `key=value` lines.
 - **Keeps up with fast devices.** Serial and ZeroMQ are read on background
   threads and drained completely, so the display never falls behind and a
@@ -45,7 +45,7 @@ a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
 Requires Python 3.11+.
 
 ```bash
-pip install "sightglass[web]"        # add serial, zmq, or use [all]
+pip install "sightglass[web]"        # add serial, zmq, ads, or use [all]
 ```
 
 Until the first PyPI release, install from GitHub:
@@ -95,6 +95,7 @@ curl http://127.0.0.1:8080/values     # what the dashboard shows, as JSON
 # Read a device.
 sightglass --serial auto --csv temperature,humidity
 sightglass --zmq tcp://localhost:5556
+sightglass --ads 5.12.34.56.1.1 --vars 'MAIN.*'    # a Beckhoff PLC
 ```
 
 `sightglass --help` lists every option, including `--terminal` to draw in the
@@ -190,6 +191,7 @@ monitor.serve(sources=[device])
 | `SerialSource(port, baudrate, decoder=...)` | a serial port (`"auto"` picks the first USB device); waits for it and reconnects |
 | `ZmqSource(endpoint, pattern="sub")` | ZeroMQ PUB/SUB (a publisher that binds `endpoint`) |
 | `ZmqSource(endpoint, pattern="pull")` | ZeroMQ PUSH/PULL: binds `endpoint`; unlike PUB/SUB, nothing sent before the monitor starts is lost |
+| `AdsSource(target, variables)` | a Beckhoff TwinCAT PLC over ADS ([below](#beckhoff-twincat-plcs-ads)); can also write to it |
 | `StdinSource()` | piped standard input, as `sightglass` does |
 | `SimulatedSource(fn, rate)` | `fn(seconds)` called `rate` times a second, for demos and tests |
 
@@ -215,6 +217,86 @@ For firmware where text is too slow or too large:
   params' names, so id `X` with param `velocity` updates `"X.velocity"`.
 
 Corrupt frames are skipped and decoding resumes at the next `0xAA`.
+
+### Beckhoff TwinCAT PLCs (ADS)
+
+Install the `ads` extra (`pip install "sightglass[web,ads]"`), then give
+`sightglass` the PLC's AMS net id and the variables to show; `*` matches any
+characters:
+
+```bash
+sightglass --ads 5.12.34.56.1.1 --vars 'MAIN.*,GVL.fTemperature'
+```
+
+All the variables are read in one ADS request every 0.1 s and shown under
+their PLC names. Structs and arrays become one value per member
+(`MAIN.stAxis.fPosition`, `GVL.aTemps[1]`), BOOLs become lamps, and the
+variables are looked up again whenever a new program is downloaded.
+
+For a lasting dashboard, describe the PLC in an interface file, with the
+types pasted from the PLC project ([examples/plc.toml](examples/plc.toml) is
+a commented one):
+
+```toml
+target = "5.12.34.56.1.1:851"
+types = """
+TYPE ST_Axis :
+STRUCT
+    fPosition : LREAL;
+    bEnabled  : BOOL;
+END_STRUCT
+END_TYPE
+"""
+
+[variables]
+"MAIN.stAxis1" = "ST_Axis"           # one value per member
+"GVL.fTemperature" = {}              # the PLC says what it is
+"MAIN.*" = {}                        # every plain top-level variable in MAIN
+"GVL.nSetpoint" = { write = true }   # may be written: see below
+```
+
+`sightglass --ads plc.toml` reads it. `types` takes struct, enum and alias
+declarations as TwinCAT writes them, comments, initial values and
+`{attribute 'pack_mode' := '1'}` included. Structs are laid out in memory as
+TwinCAT 3 does, and each variable's size is checked against the PLC's, so a
+declaration that doesn't match is reported rather than shown as wrong values.
+Declared enums are shown by name. From Python:
+
+```python
+from sightglass import AdsSource, Monitor
+
+plc = AdsSource("5.12.34.56.1.1", ["MAIN.*", "GVL.fTemperature"])
+# or AdsSource.from_file("plc.toml")
+Monitor().serve(sources=[plc])
+```
+
+**Writing.** Values sent to a variable marked `write = true` (with curl,
+`Client` or `monitor.set`) are written to the PLC, and the dashboard shows
+what the PLC reads back. Nothing is written unless all of these hold:
+
+- the variable is marked `write = true`;
+- `sightglass` was started with `--allow-writes` (`allow_writes=True`);
+- the environment variable `SIGHTGLASS_ALLOW_WRITES` is `1`;
+- the request has the dashboard's token: values for a PLC are refused over
+  HTTP from a dashboard without `--token`.
+
+```bash
+export SIGHTGLASS_ALLOW_WRITES=1
+sightglass --ads plc.toml --allow-writes --token change-me
+curl -H 'Authorization: Bearer change-me' -d 'GVL.nSetpoint=75' http://127.0.0.1:8080/update
+```
+
+Each value is checked against its type, then against the type the PLC itself
+gives the variable, and a request is all or nothing. A write that is refused
+gets 403 (not allowed), 400 (doesn't fit) or 409 (the PLC refused it or isn't
+connected), and is never retried, so a setpoint can't arrive late.
+
+**Connecting.** On Linux and macOS, pyads talks to the PLC directly, and the
+PLC needs a static route back to this machine: its IP address, and an AMS net
+id of that address followed by `.1.1` (sightglass prints both if the PLC
+doesn't answer). Add it in TwinCAT, or with pyads' `add_route_to_plc`. On
+Windows, pyads goes through TwinCAT's own ADS router: install TwinCAT (XAE,
+XAR or the TC1000 ADS setup) and add the route there.
 
 ## Outputs
 
@@ -302,6 +384,11 @@ has no authentication and traffic is not encrypted: on untrusted networks,
 reach the dashboard through an SSH tunnel or a reverse proxy with TLS and
 authentication.
 
+Values for a device (a PLC variable marked `write = true`) are only accepted
+from programs that send the token. The token crosses the network as plain
+text unless the dashboard is behind TLS, so a dashboard that can write to a
+PLC from other machines needs the tunnel or proxy too.
+
 ## Examples
 
 [examples/](examples/README.md) is a gallery where each example shows one way
@@ -320,6 +407,7 @@ install beyond [uv](https://docs.astral.sh/uv/):
 | 6. Docker | deployed as a service, fed over the network | [run](examples/README.md#6-deploy-with-docker) |
 | 7. Terminal | drawn in the terminal | [run](examples/README.md#7-in-the-terminal) |
 | 8. Custom panel | a segment-display panel, over serial | [run](examples/README.md#8-a-custom-panel-and-a-serial-device) |
+| 9. Beckhoff PLC | a TwinCAT PLC over ADS, from an interface file | [run](examples/README.md#9-a-beckhoff-plc-over-ads) |
 
 ## Extending
 
@@ -330,7 +418,10 @@ install beyond [uv](https://docs.astral.sh/uv/):
   `decode_line(line) -> {id: value}`, raising `DecodeError` for bad input; or
   subclass `Decoder` for binary formats.
 - **Source:** any object with an async generator method `updates()` that
-  yields lists of `{id: value}` mappings.
+  yields lists of `{id: value}` mappings. A source that can also write to its
+  device adds `claims(id)` (true for its ids) and `async def write(update)`,
+  raising `WriteError`; values sent to its ids then go to `write()` (see
+  `Source` in `monitor.py`).
 - **Output:** any object with `async def run(monitor)`, and optionally
   `async def start(monitor)` for setup that can fail and
   `async def flush(monitor)` to deliver the last values before

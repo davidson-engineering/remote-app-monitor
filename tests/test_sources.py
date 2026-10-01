@@ -20,7 +20,7 @@ from sightglass import (
 from sightglass.sources._thread import thread_items
 from sightglass.sources.serialport import find_serial_port
 
-from .conftest import FakeSerialDevice
+from .conftest import FakeSerialDevice, until
 
 
 class Recorder(TextElement):
@@ -33,34 +33,6 @@ class Recorder(TextElement):
     def update(self, value):
         self.history.append(value)
         super().update(value)
-
-
-async def until(condition, within: float = 3.0) -> None:
-    deadline = asyncio.get_running_loop().time() + within
-    while not condition():
-        if asyncio.get_running_loop().time() > deadline:
-            raise AssertionError("condition not met in time")
-        await asyncio.sleep(0.01)
-
-
-@pytest.fixture
-async def consume():
-    """Run ``monitor.consume(source)`` in the background for the test.
-
-    If a source failed, its exception is raised at teardown so the test report
-    shows the cause, not just a timeout.
-    """
-    tasks = []
-
-    def start(monitor, source):
-        tasks.append(asyncio.create_task(monitor.consume(source)))
-
-    yield start
-    for task in tasks:
-        task.cancel()
-    for result in await asyncio.gather(*tasks, return_exceptions=True):
-        if not isinstance(result, (asyncio.CancelledError, type(None))):
-            raise result
 
 
 async def test_serial_keeps_up_with_a_fast_device(fake_device, consume):

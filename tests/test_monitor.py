@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+import sightglass
 from sightglass import (
     Group,
     IndicatorLamp,
@@ -16,7 +17,11 @@ from sightglass import (
     SimulatedSource,
     Table,
     TextElement,
+    WriteError,
 )
+from sightglass.monitor import WRITES_ENV
+
+from .conftest import Device, until
 
 
 def make_monitor(**options) -> Monitor:
@@ -342,3 +347,73 @@ def test_serve_returns_quietly_on_ctrl_c():
     assert result.returncode == 0
     assert result.stdout.strip() == "returned"
     assert "Traceback" not in result.stderr
+
+
+# -- writing to devices ---------------------------------------------------------
+
+
+@pytest.fixture
+async def running():
+    """Run a monitor with a Device in the background; return both."""
+    monitor, device = Monitor(), Device()
+    task = asyncio.create_task(monitor.run(sources=[device]))
+    await until(lambda: monitor.claims("dev.x"))
+    yield monitor, device
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_values_for_a_device_are_written_not_shown(running, monkeypatch):
+    monitor, device = running
+    monkeypatch.setenv(WRITES_ENV, "1")
+    await monitor.submit({"dev.setpoint": 5, "note": "hi"})
+    assert device.written == [{"dev.setpoint": 5}]
+    assert "dev.setpoint" not in monitor  # the device's reading is shown instead
+    assert monitor["note"].value == "hi"
+
+
+async def test_writes_are_refused_without_the_environment_variable(
+    running, monkeypatch
+):
+    monitor, device = running
+    monkeypatch.delenv(WRITES_ENV, raising=False)
+    with pytest.raises(WriteError) as raised:
+        await monitor.submit({"dev.setpoint": 5, "note": "hi"})
+    assert isinstance(raised.value.failures["dev.setpoint"], PermissionError)
+    assert f"set {WRITES_ENV}=1" in str(raised.value)
+    assert device.written == []
+    assert monitor["note"].value == "hi"  # values to show are unaffected
+
+
+async def test_update_writes_in_order_and_logs_failures(running, monkeypatch, caplog):
+    monitor, device = running
+    monkeypatch.setenv(WRITES_ENV, "1")
+    for value in range(5):
+        monitor.set("dev.setpoint", value)
+    await until(lambda: len(device.written) == 5)
+    assert device.written == [{"dev.setpoint": value} for value in range(5)]
+
+    device.failure = RuntimeError("the device said no")
+    with caplog.at_level(logging.WARNING, logger="sightglass"):
+        await asyncio.to_thread(monitor.set, "dev.other", 1)  # from another thread
+        await until(lambda: "the device said no" in caplog.text)
+    assert "'dev.other': not written" in caplog.text
+
+
+async def test_nothing_is_claimed_once_the_monitor_stops():
+    monitor = Monitor()
+    task = asyncio.create_task(monitor.run(sources=[Device()]))
+    await until(lambda: monitor.claims("dev.x"))
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    assert not monitor.claims("dev.x")
+    monitor.set("dev.x", 1)
+    assert monitor["dev.x"].value == 1
+
+
+def test_a_missing_optional_dependency_says_what_to_install(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pyads", None)  # as if not installed
+    monkeypatch.delitem(sys.modules, "sightglass.sources.ads", raising=False)
+    monkeypatch.delitem(vars(sightglass), "AdsSource", raising=False)
+    with pytest.raises(ImportError, match=r"pip install 'sightglass\[ads\]'"):
+        sightglass.AdsSource  # noqa: B018

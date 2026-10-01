@@ -102,7 +102,7 @@ def test_client_needs_no_optional_dependencies():
     script = (
         "import sys\n"
         "import sightglass.client\n"
-        "loaded = {'aiohttp', 'zmq', 'serial'} & set(sys.modules)\n"
+        "loaded = {'aiohttp', 'zmq', 'serial', 'pyads'} & set(sys.modules)\n"
         "assert not loaded, loaded\n"
     )
     subprocess.run([sys.executable, "-c", script], check=True, timeout=20)
