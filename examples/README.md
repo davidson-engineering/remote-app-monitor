@@ -8,7 +8,7 @@ example needs on the fly: no clone, no virtualenv. Install it once with
 `curl -LsSf https://astral.sh/uv/install.sh | sh` (macOS, Linux) or
 `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` (Windows).
 
-Without uv: `pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"`,
+Without uv: `pip install "sightglass[web]"`,
 download the example, and run it with `python`.
 
 ## Start here: the demo
@@ -16,7 +16,7 @@ download the example, and run it with `python`.
 Every kind of display, with simulated data:
 
 ```bash
-uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo --open
+uvx --from "sightglass[web]" sightglass --demo --open
 ```
 
 ## The showcase: launch control
@@ -32,7 +32,7 @@ says it has gone quiet.
 ![Launch control](../docs/launch-control.png)
 
 ```bash
-uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --open
+uvx --from "sightglass[web]" sightglass --demo launch --open
 ```
 
 The launch repeats every five minutes or so; `--theme terminal` shows it as a
@@ -77,7 +77,7 @@ other output still shows in the terminal. The program needs no dashboard code
 at all. [04_pipe.py](04_pipe.py)
 
 ```bash
-uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --open
+uv run https://raw.githubusercontent.com/davidson-engineering/sightglass/main/examples/04_pipe.py | uvx --from "sightglass[web]" sightglass --open
 ```
 
 ## 5. Many processes, one dashboard
@@ -114,7 +114,7 @@ too. Two layouts: the full one from 101 x 34, a compact one down to 80 x 24.
 ![The launch control demo in a terminal](../docs/launch-terminal.png)
 
 ```bash
-uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --terminal
+uvx --from "sightglass[web]" sightglass --demo launch --terminal
 ```
 
 A three-axis machine drawn in the terminal instead of a browser, with the
@@ -155,7 +155,7 @@ commented; download it, change `target` and the variables to match your PLC,
 and run:
 
 ```bash
-uvx --from "sightglass[web,ads] @ git+https://github.com/davidson-engineering/sightglass" sightglass --ads plc.toml --open
+uvx --from "sightglass[web,ads]" sightglass --ads plc.toml --open
 ```
 
 This one needs a PLC, or a PC running a TwinCAT runtime. On

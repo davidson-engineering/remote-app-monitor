@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "sightglass[serial,zmq] @ git+https://github.com/davidson-engineering/sightglass",
+#     "sightglass[serial,zmq]",
 # ]
 # ///
 """Terminal dashboard for a three-axis machine.

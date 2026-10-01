@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass",
+#     "sightglass[web]",
 # ]
 # ///
 """Hello, dashboard: live values from a Python program, with nothing to set up.
