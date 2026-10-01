@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import json
 import os
 import re
 import subprocess
@@ -183,6 +184,16 @@ def test_demo_launch_in_the_terminal(tmp_path):
         time.sleep(2)
         with urllib.request.urlopen(url, timeout=5) as page:
             assert "Aries II" in page.read().decode()
+        # Stop it only once its feeder processes report: killed while they
+        # are still starting, Windows children fail to attach to it.
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            with urllib.request.urlopen(f"{url}values", timeout=5) as response:
+                values = json.load(response)
+            if values["clock.time"] and values["weather.wind"]["values"]:
+                break
+            time.sleep(0.2)
+        assert values["weather.wind"]["values"]  # the feeders work in this mode
     finally:
         out, err = stop(process)
     assert out.startswith("\x1b[?1049h")  # the terminal's alternate screen
