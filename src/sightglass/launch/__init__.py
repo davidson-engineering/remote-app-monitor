@@ -20,7 +20,6 @@ similar, copy this folder: it uses only sightglass's public API.
 """
 
 import multiprocessing
-import os
 import sys
 import time
 from collections.abc import Callable
@@ -161,9 +160,7 @@ def run(
 
 def _feed(program: Callable[..., None], args: tuple, log: str | None) -> None:
     """Run a feeder program (in its own process); with ``log``, whatever it
-    prints goes to that file."""
+    prints, and any warnings it logs, go to that file."""
     if log:
-        output = open(log, "a", buffering=1, encoding="utf-8")  # noqa: SIM115
-        os.dup2(output.fileno(), 1)
-        os.dup2(output.fileno(), 2)
+        sys.stdout = sys.stderr = open(log, "a", buffering=1, encoding="utf-8")  # noqa: SIM115
     program(*args)

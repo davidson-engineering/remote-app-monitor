@@ -193,9 +193,13 @@ def test_demo_launch_in_the_terminal(tmp_path):
             if values["clock.time"] and values["weather.wind"]["values"]:
                 break
             time.sleep(0.2)
-        assert values["weather.wind"]["values"]  # the feeders work in this mode
     finally:
         out, err = stop(process)
+    log = tmp_path / "sightglass.log"
+    logged = log.read_text() if log.exists() else "(no log)"
+    report = f"values: {values}\nstderr: {err}\nlog: {logged}"
+    assert values["clock.time"], report  # ground systems, from another process
+    assert values["weather.wind"]["values"], report  # the weather mast, likewise
     assert out.startswith("\x1b[?1049h")  # the terminal's alternate screen
     for shown in ["Launch control", "Flight dynamics", "Go/no-go poll", "Events"]:
         assert shown in out
