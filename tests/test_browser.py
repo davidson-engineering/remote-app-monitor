@@ -217,6 +217,31 @@ async def test_generic_page_offers_the_terminal_theme(page, serve):
     assert "VT323" not in font
 
 
+# The CRT effects' layers, and the CSS animations running on the page.
+SCANLINES = "getComputedStyle(document.body, '::before').content"
+ANIMATIONS = "document.getAnimations().filter(a => a instanceof CSSAnimation).length"
+
+
+async def test_crt_effects_follow_the_switch_and_reduced_motion(page, serve):
+    """Still effects need only the CRT switch; moving ones also stop for people
+    who ask for reduced motion."""
+    monitor = Monitor()
+    monitor.add(ProgressBar("job", label="Job"))
+    await page.goto(serve(None, monitor, theme="terminal"))
+    assert await page.evaluate(SCANLINES) == '""'
+    assert await page.evaluate(ANIMATIONS) > 0  # the refresh rolling, the grain
+
+    await page.emulate_media(reduced_motion="reduce")
+    await page.reload()
+    assert await page.evaluate(SCANLINES) == '""'  # still there
+    assert await page.evaluate(ANIMATIONS) == 0  # nothing moves, not even power-on
+
+    await page.emulate_media(reduced_motion="no-preference")
+    await page.locator("[data-crt-switch]").click()  # off
+    assert await page.evaluate(SCANLINES) == "none"
+    assert await page.evaluate(ANIMATIONS) == 0
+
+
 async def test_page_marks_quiet_sources_and_a_lost_connection(page, serve):
     monitor = Monitor()
     await page.goto(serve('<span data-bind="x"></span>', monitor, stale_after=1))
@@ -278,6 +303,8 @@ async def test_launch_demo_page_comes_alive(page):
                 "face => document.fonts.load(`20px ${face}`).then(f => f.length)", face
             )
             assert loaded, face
+        await page.emulate_media(reduced_motion="reduce")
+        assert await page.evaluate(ANIMATIONS) == 0  # the cursor stops blinking
         assert not errors
     finally:
         process.terminate()

@@ -99,14 +99,15 @@ def main() -> None:
             frame = printed.decode("utf-8", "replace").split("\x1b[H")[-2]
             # The same moment in the terminal theme (its switch, as a viewer would).
             page.locator("[data-theme-switch]").click()
-            page.wait_for_timeout(800)  # the CRT's power-on flicker
             # Its bigger type makes the page taller: show all of it, in a
             # window that tall, so the CRT overlay covers it all.
             height = page.evaluate("document.documentElement.scrollHeight")
             page.set_viewport_size({"width": 1440, "height": height})
             page.wait_for_timeout(300)
             themed = DOCS / "launch-terminal-theme.png"
-            page.screenshot(path=themed)
+            # Power-on finished, the refresh roll and grain at their first frame:
+            # the same picture every time.
+            page.screenshot(path=themed, animations="disabled")
             # Scanlines and glow, all one green: 256 colours lose nothing visible
             # and halve the file.
             Image.open(themed).convert("RGB").quantize(256).save(themed, optimize=True)

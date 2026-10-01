@@ -9,9 +9,16 @@
  * data-theme-switch and data-crt-switch change them (sightglass.js).
  *
  * Dark only. The text tokens clear 4.5:1 on --crt-surface. The CRT effects
- * (glow, scanlines, a tube vignette, a power-on flicker) are cosmetic: off
- * with the CRT switch, for people who ask for reduced motion, and in
- * forced-colors mode.
+ * are cosmetic, all off with the CRT switch and in forced-colors mode:
+ *
+ * - still: phosphor glow, scanlines, the tube's rounded corners, darker
+ *   edges and the glass's reflection;
+ * - moving, also off for people who ask for reduced motion: a power-on
+ *   flicker, the raster's refresh rolling down the screen and a slight
+ *   brightness flicker.
+ *
+ * The keyframes at the end are for pages to use too: crt-draw (a panel
+ * drawn in raster steps), crt-type (a title typed in) and crt-blink.
  */
 
 @font-face {
@@ -44,8 +51,8 @@ html[data-theme="terminal"] {
   --crt-bright: #c2ffd2;
   --crt-dim: #3dbd66;
   --crt-muted: #2f9150;
-  --crt-amber: #ffb22e;
-  --crt-red: #ff6159;
+  --crt-amber: #ffb22e; /* caution, as in a cockpit */
+  --crt-red: #ff6159; /* a limit or a failure */
   --crt-glow: 0 0 1px rgb(92 255 138 / 0.7), 0 0 7px rgb(92 255 138 / 0.28);
   --crt-font: "VT323", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", Menlo,
     Consolas, monospace;
@@ -56,7 +63,23 @@ html[data-theme="terminal"] {
   background: var(--crt-bg);
 }
 
-@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+html[data-theme="terminal"] ::selection {
+  background: var(--crt-fg);
+  color: var(--crt-bg);
+  text-shadow: none;
+}
+
+html[data-theme="terminal"] {
+  scrollbar-color: var(--crt-rule) var(--crt-bg);
+}
+
+/* -- still effects -------------------------------------------------------- */
+
+@media (forced-colors: none) {
+  html[data-theme="terminal"][data-crt="on"] {
+    --crt-corner: clamp(10px, 2.4vmin, 26px);
+  }
+
   html[data-theme="terminal"][data-crt="on"] body {
     text-shadow: var(--crt-glow);
   }
@@ -79,13 +102,47 @@ html[data-theme="terminal"] {
     );
   }
 
-  /* The tube's darker edges. */
+  /* The tube: rounded corners in a black bezel, darker toward its edges,
+     and the glass's reflection, top left. */
   html[data-theme="terminal"][data-crt="on"] body::after {
-    background: radial-gradient(ellipse at center, rgb(0 0 0 / 0) 62%, rgb(0 0 0 / 0.5));
+    border-radius: var(--crt-corner);
+    background:
+      radial-gradient(ellipse 60% 45% at 22% 0%, rgb(194 255 210 / 0.045), transparent 70%),
+      radial-gradient(ellipse at center, rgb(0 0 0 / 0) 62%, rgb(0 0 0 / 0.42));
+    box-shadow:
+      0 0 0 64px #000,
+      inset 0 0 36px 6px rgb(0 0 0 / 0.55);
   }
+}
 
+/* -- moving effects ------------------------------------------------------- */
+
+@media (forced-colors: none) and (prefers-reduced-motion: no-preference) {
   html[data-theme="terminal"][data-crt="on"] main {
     animation: crt-power-on 0.45s ease-out both;
+  }
+
+  /* The refresh, rolling down the screen. */
+  html[data-theme="terminal"][data-crt="on"]::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 1000;
+    height: 30vh;
+    pointer-events: none;
+    background: linear-gradient(
+      transparent,
+      rgb(92 255 138 / 0.035) 66%,
+      rgb(194 255 210 / 0.055) 88%,
+      transparent
+    );
+    translate: 0 -100%;
+    animation: crt-roll 9s linear infinite;
+  }
+
+  /* The beam's brightness, never quite steady. */
+  html[data-theme="terminal"][data-crt="on"] body::before {
+    animation: crt-flicker 4.7s steps(1, end) infinite;
   }
 }
 
@@ -110,5 +167,62 @@ html[data-theme="terminal"] {
 @keyframes crt-blink {
   50% {
     opacity: 0;
+  }
+}
+
+@keyframes crt-roll {
+  to {
+    translate: 0 100vh;
+  }
+}
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  31% {
+    opacity: 0.8;
+  }
+
+  32% {
+    opacity: 1;
+  }
+
+  63% {
+    opacity: 0.88;
+  }
+
+  64%,
+  66% {
+    opacity: 1;
+  }
+
+  65% {
+    opacity: 0.84;
+  }
+}
+
+/* A panel drawn by the raster, top to bottom (with room for a name cut into
+   its top edge); give it steps() and animation-fill-mode: backwards. */
+@keyframes crt-draw {
+  from {
+    clip-path: inset(-1em -1em 100% -1em);
+  }
+
+  to {
+    clip-path: inset(-1em);
+  }
+}
+
+/* A line typed in, left to right. */
+@keyframes crt-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0);
   }
 }

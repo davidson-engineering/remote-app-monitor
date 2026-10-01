@@ -259,15 +259,18 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
   CSS can show which source went quiet, e.g.
   `section:has([data-stale]) { opacity: 0.3 }`. Bind it to a value the source
   sends every time; resending the same value counts as arriving.
-- **Themes:** pages come in `classic` and `terminal` (phosphor green, with
-  optional CRT effects); `--theme` / `WebDashboard(theme=...)` sets the
-  default and a switch on the page lets viewers change it. For your own
-  page: `<script src="/_sightglass/theme.js"></script>` and
+- **Themes:** pages come in `classic` and `terminal` (phosphor green,
+  cockpit-style instruments, optional CRT effects); `--theme` /
+  `WebDashboard(theme=...)` sets the default and a switch on the page lets
+  viewers change it. For your own page:
+  `<script src="/_sightglass/theme.js"></script>` and
   `<link rel="stylesheet" href="/_sightglass/terminal.css">` in `<head>`,
   buttons with `data-theme-switch` / `data-crt-switch`, and CSS under
   `html[data-theme="terminal"]` using the `--crt-*` colours and fonts
   (`--crt-display-font` for a big clock-like display, at multiples of 11px;
-  `--crt-readout-font` for readings, at multiples of 8px).
+  `--crt-readout-font` for readings, at multiples of 8px). The CRT effects
+  cover any such page; animate your panels with its `crt-draw` and
+  `crt-type` keyframes, only under `prefers-reduced-motion: no-preference`.
 - **In a terminal:** `TerminalDisplay(screen=fn)` draws your own layout:
   `fn(monitor, width, height)` returns the whole frame, reading
   `monitor[id].text` and coloured with `Style(fg=214)` (xterm's 256
