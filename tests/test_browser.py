@@ -271,7 +271,13 @@ async def test_launch_demo_page_comes_alive(page):
         clock = page.locator(".clock")
         await expect(page.locator("html")).to_have_attribute("data-theme", "terminal")
         font = await clock.evaluate("el => getComputedStyle(el).fontFamily")
-        assert font.startswith("VT323")
+        assert font.startswith('"Micro 5"')
+        # Its block digits, and the readings' pixel ones, really arrived.
+        for face in ['"Micro 5"', "Silkscreen"]:
+            loaded = await page.evaluate(
+                "face => document.fonts.load(`20px ${face}`).then(f => f.length)", face
+            )
+            assert loaded, face
         assert not errors
     finally:
         process.terminate()
