@@ -529,9 +529,10 @@ html[data-connection="closed"] .link-state::after {
   margin: -7px;
 }
 
-/* Eight engines in a ring around the centre one. */
+/* Eight engines in a ring around the centre one (turned back upright). */
 .octaweb .led[style] {
-  transform: rotate(calc(var(--i) * 45deg)) translateY(-27px);
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-27px)
+    rotate(calc(var(--i) * -45deg));
 }
 
 .vacuum .led {
@@ -714,6 +715,36 @@ html:not([data-connection="open"]) .console > :not(.masthead) > * {
   opacity: 0.35;
 }
 
+/* -- theme switches -------------------------------------------------------- */
+
+.switches {
+  gap: 8px;
+}
+
+.switch {
+  padding: 1px 8px;
+  border: 1px solid var(--track);
+  border-radius: 4px;
+  background: none;
+  color: var(--legend);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.switch:hover {
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--telemetry);
+  outline-offset: 2px;
+}
+
+html:not([data-theme="terminal"]) [data-crt-switch] {
+  display: none; /* nothing to switch */
+}
+
 /* -- narrow screens -------------------------------------------------------- */
 
 @media (max-width: 1100px) {
@@ -777,5 +808,339 @@ html:not([data-connection="open"]) .console > :not(.masthead) > * {
   .tank,
   .compass {
     transition: none;
+  }
+}
+
+/* == the terminal theme ======================================================
+ * The same page as a phosphor terminal. Its colors, font and CRT effects
+ * come from /_sightglass/terminal.css; here the instruments are redrawn
+ * with them: double-ruled panels, an inverted status bar, checklists,
+ * dot leaders and blocks.
+ */
+
+html[data-theme="terminal"] {
+  --display: var(--crt-surface);
+  --rule: var(--crt-rule);
+  --track: var(--crt-grid);
+  --legend: var(--crt-dim);
+  --text: var(--crt-fg);
+  --telemetry: var(--crt-fg);
+  --go: var(--crt-fg);
+  --caution: var(--crt-amber);
+  --clock: var(--crt-bright);
+  --led-off: var(--crt-grid);
+  --led-on: var(--crt-fg);
+  --led-on-glow: rgb(92 255 138 / 0.5);
+}
+
+html[data-theme="terminal"] body {
+  background: var(--crt-bg);
+  font: 20px/1.25 var(--crt-font);
+  letter-spacing: 0.02em;
+}
+
+html[data-theme="terminal"] .console {
+  gap: 22px 12px;
+  padding: 0 12px 16px;
+  background: var(--crt-bg);
+}
+
+html[data-theme="terminal"] .console > :not(.masthead) {
+  border: 3px double var(--crt-rule);
+}
+
+html[data-theme="terminal"] h2,
+html[data-theme="terminal"] h3,
+html[data-theme="terminal"] dt,
+html[data-theme="terminal"] figcaption,
+html[data-theme="terminal"] .timeline,
+html[data-theme="terminal"] .pad,
+html[data-theme="terminal"] .poll,
+html[data-theme="terminal"] .feeds {
+  text-transform: uppercase;
+}
+
+html[data-theme="terminal"] h3,
+html[data-theme="terminal"] dt,
+html[data-theme="terminal"] figcaption {
+  font-size: 18px;
+}
+
+/* Panel names cut into the top edge. */
+html[data-theme="terminal"] h2 {
+  position: absolute;
+  top: -0.72em;
+  left: 12px;
+  margin: 0;
+  padding: 0 8px;
+  background: var(--crt-bg);
+  color: var(--crt-bright);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="terminal"] h2::before {
+  content: "> ";
+  color: var(--crt-fg);
+}
+
+html[data-theme="terminal"] .dynamics h2 {
+  margin-bottom: 0;
+}
+
+/* The status bar: inverted, like a terminal's own. */
+html[data-theme="terminal"] .masthead {
+  margin: 0 -12px;
+  padding: 6px 24px;
+  background: var(--crt-fg);
+  color: var(--crt-bg);
+  text-shadow: none;
+}
+
+html[data-theme="terminal"] h1 {
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="terminal"] h1 span,
+html[data-theme="terminal"] .feeds,
+html[data-theme="terminal"] .frame {
+  color: var(--crt-bg);
+}
+
+html[data-theme="terminal"] .feeds {
+  font-size: 20px;
+}
+
+html[data-theme="terminal"] .masthead .led {
+  border-radius: 0;
+  background: none;
+  outline: 1px solid var(--crt-bg);
+  box-shadow: none;
+}
+
+html[data-theme="terminal"] .masthead .led[data-state="on"],
+html[data-theme="terminal"][data-connection="open"] .link .led {
+  background: var(--crt-bg);
+  box-shadow: none;
+}
+
+html[data-theme="terminal"] .feeds .led[data-stale] {
+  background: var(--crt-amber);
+}
+
+html[data-theme="terminal"] .link {
+  border-left-color: rgb(2 4 2 / 0.3);
+}
+
+html[data-theme="terminal"] .switch {
+  border: 1px solid var(--crt-bg);
+  border-radius: 0;
+  color: var(--crt-bg);
+  font-size: 20px;
+  text-transform: uppercase;
+}
+
+html[data-theme="terminal"] .switch::before {
+  content: "[";
+}
+
+html[data-theme="terminal"] .switch::after {
+  content: "]";
+}
+
+html[data-theme="terminal"] .switch[aria-pressed="true"] {
+  background: var(--crt-bg);
+  color: var(--crt-fg);
+}
+
+html[data-theme="terminal"] :focus-visible {
+  outline-color: var(--crt-bright);
+}
+
+/* The clock in the terminal's own type, no segments behind it. */
+html[data-theme="terminal"] .clock {
+  font-family: var(--crt-font);
+  font-size: clamp(76px, 12vw, 190px);
+  line-height: 0.8;
+  --lcd-lit: var(--crt-bright);
+  --lcd-edge: transparent;
+  --lcd-glow: 0 0 2px rgb(92 255 138 / 0.9), 0 0 24px rgb(92 255 138 / 0.45);
+}
+
+html[data-theme="terminal"] .clock .lcd-field::before {
+  content: none;
+}
+
+html[data-theme="terminal"] .sign {
+  padding-top: 0.12em;
+  font-family: var(--crt-font);
+  font-weight: 400;
+  color: var(--crt-fg);
+}
+
+html[data-theme="terminal"] .status {
+  color: var(--crt-bright);
+  font-size: 30px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+/* Events and pad as checklists: [X] done, [ ] to come. */
+html[data-theme="terminal"] .timeline::before {
+  content: none;
+}
+
+html[data-theme="terminal"] .timeline .led,
+html[data-theme="terminal"] .pad .led,
+html[data-theme="terminal"] .poll .led {
+  display: none;
+}
+
+html[data-theme="terminal"] .timeline li::before,
+html[data-theme="terminal"] .pad li::before {
+  content: "[ ]";
+  color: var(--crt-muted);
+}
+
+html[data-theme="terminal"] .timeline li:has(.led[data-state="on"])::before,
+html[data-theme="terminal"] .pad li:has(.led[data-state="on"])::before {
+  content: "[X]";
+  color: var(--crt-fg);
+}
+
+html[data-theme="terminal"] .timeline li:has(.led[data-state="on"]),
+html[data-theme="terminal"] .pad li:has(.led[data-state="on"]) {
+  color: var(--crt-bright);
+}
+
+html[data-theme="terminal"] .timeline,
+html[data-theme="terminal"] .poll {
+  gap: 4px;
+}
+
+/* The poll: dot leaders to each answer, GO inverted. */
+html[data-theme="terminal"] .poll li::before {
+  content: "";
+  order: 2;
+  flex: 1;
+  min-width: 12px;
+  border-bottom: 2px dotted var(--crt-muted);
+  transform: translateY(-4px);
+}
+
+html[data-theme="terminal"] .poll li::after {
+  order: 3;
+  margin-left: 0;
+  color: var(--crt-dim);
+}
+
+html[data-theme="terminal"] .poll li:has(.led[data-state="on"])::after {
+  content: "GO";
+  padding: 0 8px;
+  background: var(--crt-fg);
+  color: var(--crt-bg);
+  text-shadow: none;
+}
+
+/* Instruments in phosphor. */
+html[data-theme="terminal"] .readout .reading {
+  font-size: 40px;
+}
+
+html[data-theme="terminal"] .reading small {
+  font-size: 0.55em;
+}
+
+html[data-theme="terminal"] .face::before {
+  background: conic-gradient(
+    from -120deg,
+    var(--crt-fg) calc(var(--value) * 240deg),
+    var(--crt-grid) 0 240deg,
+    transparent 0
+  );
+}
+
+html[data-theme="terminal"] .face {
+  background: radial-gradient(circle, var(--crt-bright) 3px, transparent 3.5px);
+}
+
+html[data-theme="terminal"] .face::after {
+  background: repeating-conic-gradient(
+    from -120.5deg,
+    var(--crt-muted) 0 1deg,
+    transparent 1deg 24deg
+  );
+}
+
+html[data-theme="terminal"] .needle {
+  background: var(--crt-bright);
+}
+
+html[data-theme="terminal"] .rocket {
+  fill: var(--crt-bright);
+}
+
+html[data-theme="terminal"] .dial .reading {
+  font-size: 26px;
+}
+
+html[data-theme="terminal"] .dial figcaption {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+html[data-theme="terminal"] .sky,
+html[data-theme="terminal"] .compass {
+  border-color: var(--crt-rule);
+}
+
+html[data-theme="terminal"] .sky {
+  background: linear-gradient(
+    transparent calc(50% - 0.5px),
+    var(--crt-muted) 0 calc(50% + 0.5px),
+    transparent 0
+  );
+}
+
+html[data-theme="terminal"] .led {
+  border-radius: 0;
+}
+
+/* Tanks in blocks. */
+html[data-theme="terminal"] .level {
+  border-color: var(--crt-rule);
+  border-radius: 0;
+  background:
+    linear-gradient(to top, transparent calc(var(--value) * 100%), var(--crt-surface) 0),
+    repeating-linear-gradient(to top, var(--crt-fg) 0 5px, transparent 5px 7px);
+}
+
+html[data-theme="terminal"] .tank > span {
+  font-size: 18px;
+}
+
+html[data-theme="terminal"] .events pre {
+  font: 20px/1.3 var(--crt-font);
+  color: var(--crt-dim);
+}
+
+html[data-theme="terminal"] [data-feed]:has([data-stale])::after {
+  font-size: 20px;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  html[data-theme="terminal"][data-crt="on"] :is(.chart, .face, .sky, .compass, .level) {
+    filter: drop-shadow(0 0 3px rgb(92 255 138 / 0.55));
+  }
+
+  /* A cursor waiting after the last event. */
+  html[data-theme="terminal"][data-crt="on"] .events pre::after {
+    content: "\A█"; /* on a line of its own, like a prompt */
+    color: var(--crt-fg);
+    animation: crt-blink 1.1s steps(1, end) infinite;
   }
 }

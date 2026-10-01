@@ -1,4 +1,5 @@
-"""Take the README's screenshots of the launch demo, in a browser and a terminal.
+"""Take the README's screenshots of the launch demo: its page in both themes,
+and its terminal screen.
 
     uv run --all-extras python docs/screenshot.py
 
@@ -24,6 +25,7 @@ import threading
 import time
 from pathlib import Path
 
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
 DOCS = Path(__file__).parent
@@ -95,6 +97,19 @@ def main() -> None:
             page.screenshot(path=DOCS / "launch-control.png")
             # The latest whole frame: each one starts by moving the cursor home.
             frame = printed.decode("utf-8", "replace").split("\x1b[H")[-2]
+            # The same moment in the terminal theme (its switch, as a viewer would).
+            page.locator("[data-theme-switch]").click()
+            page.wait_for_timeout(800)  # the CRT's power-on flicker
+            # Its bigger type makes the page taller: show all of it, in a
+            # window that tall, so the CRT overlay covers it all.
+            height = page.evaluate("document.documentElement.scrollHeight")
+            page.set_viewport_size({"width": 1440, "height": height})
+            page.wait_for_timeout(300)
+            themed = DOCS / "launch-terminal-theme.png"
+            page.screenshot(path=themed)
+            # Scanlines and glow, all one green: 256 colours lose nothing visible
+            # and halve the file.
+            Image.open(themed).convert("RGB").quantize(256).save(themed, optimize=True)
 
             view = browser.new_page(viewport={"width": 2400, "height": 1600})
             html = TERMINAL.replace("COLUMNS", str(COLUMNS)).replace(
@@ -109,7 +124,7 @@ def main() -> None:
         demo.wait(10)
         os.close(controller)
         (DOCS / "sightglass.log").unlink(missing_ok=True)
-    print("Saved docs/launch-control.png and docs/launch-terminal.png")
+    print("Saved launch-control.png, launch-terminal-theme.png, launch-terminal.png")
 
 
 if __name__ == "__main__":

@@ -107,6 +107,12 @@ def parser() -> argparse.ArgumentParser:
     )
     display.add_argument("--title", default="Monitor", help="page heading")
     display.add_argument(
+        "--theme",
+        choices=["classic", "terminal"],
+        default="classic",
+        help="the page's look unless a viewer switches (default: classic)",
+    )
+    display.add_argument(
         "--open", action="store_true", help="open the dashboard in a browser"
     )
     display.add_argument("--token", help="require this token to POST /update")
@@ -171,6 +177,7 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
                 host=args.host,
                 port=args.port,
                 title=args.title,
+                theme=args.theme,
                 token=args.token,
                 stale_after=args.stale_after,
                 open_browser=args.open,
@@ -198,7 +205,13 @@ def launch(args: argparse.Namespace) -> None:
         )
     from .launch import run
 
-    run(host=args.host, port=args.port, open_browser=args.open, terminal=args.terminal)
+    run(
+        host=args.host,
+        port=args.port,
+        open_browser=args.open,
+        terminal=args.terminal,
+        theme=args.theme,
+    )
 
 
 def guide() -> str:

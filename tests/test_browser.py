@@ -48,8 +48,8 @@ def serve(tmp_path):
         if body is not None:
             page = tmp_path / "page.html"
             page.write_text(
-                f"<!doctype html><html><head><style>{options.pop('css', '')}"
-                f"</style></head><body>{body}"
+                f"<!doctype html><html><head>{options.pop('head', '')}"
+                f"<style>{options.pop('css', '')}</style></head><body>{body}"
                 '<script src="/_sightglass/sightglass.js"></script></body></html>'
             )
         web = WebDashboard(page, port=0, announce=False, **options)
@@ -176,6 +176,47 @@ async def test_stale_after_holds_while_the_page_is_disconnected(page, serve):
     await expect(wind).not_to_have_attribute("data-stale", "true")
 
 
+async def test_themes_switch_and_are_remembered(page, serve):
+    monitor = Monitor()
+    body = (
+        '<button id="theme" data-theme-switch>Terminal</button>'
+        '<button id="crt" data-crt-switch>CRT</button>'
+    )
+    head = '<script src="/_sightglass/theme.js"></script>'
+    await page.goto(serve(body, monitor, theme="terminal", head=head))
+    html, theme, crt = (
+        page.locator("html"),
+        page.locator("#theme"),
+        page.locator("#crt"),
+    )
+    await expect(html).to_have_attribute("data-theme", "terminal")  # the default
+    await expect(html).to_have_attribute("data-crt", "on")
+    await expect(theme).to_have_attribute("aria-pressed", "true")
+
+    await theme.click()
+    await crt.click()
+    await expect(html).to_have_attribute("data-theme", "classic")
+    await expect(html).to_have_attribute("data-crt", "off")
+    await expect(theme).to_have_attribute("aria-pressed", "false")
+    await expect(crt).to_have_attribute("aria-pressed", "false")
+
+    await page.reload()  # the viewer's choice beats the dashboard's default
+    await expect(html).to_have_attribute("data-theme", "classic")
+    await expect(html).to_have_attribute("data-crt", "off")
+
+
+async def test_generic_page_offers_the_terminal_theme(page, serve):
+    monitor = Monitor()
+    monitor.add(ProgressBar("job", label="Job"))
+    await page.goto(serve(None, monitor, theme="terminal"))
+    await expect(page.locator("html")).to_have_attribute("data-theme", "terminal")
+    font = await page.locator("body").evaluate("el => getComputedStyle(el).fontFamily")
+    assert font.startswith("VT323")
+    await page.locator("[data-theme-switch]").click()
+    font = await page.locator("body").evaluate("el => getComputedStyle(el).fontFamily")
+    assert "VT323" not in font
+
+
 async def test_page_marks_quiet_sources_and_a_lost_connection(page, serve):
     monitor = Monitor()
     await page.goto(serve('<span data-bind="x"></span>', monitor, stale_after=1))
@@ -224,6 +265,13 @@ async def test_launch_demo_page_comes_alive(page):
         gauge = page.locator('[data-bind="acceleration.ratio"]')
         await expect(gauge).to_have_css("--value", "0.2")  # 1 g, standing on the pad
         await expect(page.locator(".weather .chart polyline")).to_have_count(1)
+
+        await expect(page.locator("html")).to_have_attribute("data-theme", "classic")
+        await page.locator("[data-theme-switch]").click()  # the terminal theme
+        clock = page.locator(".clock")
+        await expect(page.locator("html")).to_have_attribute("data-theme", "terminal")
+        font = await clock.evaluate("el => getComputedStyle(el).fontFamily")
+        assert font.startswith("VT323")
         assert not errors
     finally:
         process.terminate()

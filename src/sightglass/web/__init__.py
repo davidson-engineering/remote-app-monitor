@@ -42,6 +42,25 @@ logger = logging.getLogger(__name__)
 
 ASSETS = Path(__file__).parent / "static"
 MONITOR_KEY = web.AppKey("monitor", Monitor)
+THEMES = ("classic", "terminal")
+
+# /_sightglass/theme.js, loaded in a page's <head>: applies the viewer's
+# theme before anything is drawn (no flash of the other one).
+THEME_SCRIPT = """\
+// The viewer's theme: their choice in this browser, or the dashboard's default.
+(() => {
+  const root = document.documentElement;
+  let theme = %s;
+  let crt = "on";
+  try {
+    const chosen = localStorage.getItem("sightglass.theme");
+    if (%s.includes(chosen)) theme = chosen;
+    if (localStorage.getItem("sightglass.crt") === "off") crt = "off";
+  } catch {}  // storage blocked: the default it is
+  root.dataset.theme = theme;
+  root.dataset.crt = crt;
+})();
+"""
 
 
 class WebDashboard:
@@ -59,6 +78,8 @@ class WebDashboard:
         title: heading of the generic page.
         token: if set, posting to ``/update`` requires the header
             ``Authorization: Bearer <token>``.
+        theme: the pages' theme unless a viewer picks another: "classic" or
+            "terminal" (a phosphor-green terminal, with optional CRT effects).
         stale_after: seconds without new data after which the page dims its
             values, for sources expected to update continuously.
         fps: maximum pushes per second to each browser.
@@ -79,6 +100,7 @@ class WebDashboard:
         port: int = 8080,
         title: str = "Monitor",
         token: str | None = None,
+        theme: str = "classic",
         stale_after: float | None = None,
         fps: float = 30,
         announce: bool = True,
@@ -92,6 +114,9 @@ class WebDashboard:
         self.port = port
         self.title = title
         self.token = token
+        if theme not in THEMES:
+            raise ValueError(f"theme must be classic or terminal, not {theme!r}")
+        self.theme = theme
         self.stale_after = stale_after
         self.fps = fps
         self.announce = announce
@@ -118,6 +143,7 @@ class WebDashboard:
         app.router.add_get("/ws", self._websocket)
         app.router.add_post("/update", self._receive)
         app.router.add_get("/values", self._values)
+        app.router.add_get("/_sightglass/theme.js", self._theme_script)
         app.router.add_static("/_sightglass/", ASSETS)
         if self.static_dir:
             app.router.add_static("/static/", self.static_dir)
@@ -206,6 +232,10 @@ class WebDashboard:
             raise web.HTTPBadRequest(text=f"{error}\n") from None
         request.app[MONITOR_KEY].update(*updates)
         return web.Response(status=204)
+
+    async def _theme_script(self, request: web.Request) -> web.Response:
+        script = THEME_SCRIPT % (json.dumps(self.theme), json.dumps(list(THEMES)))
+        return web.Response(text=script, content_type="text/javascript")
 
     async def _values(self, request: web.Request) -> web.Response:
         return web.json_response(request.app[MONITOR_KEY].snapshot())

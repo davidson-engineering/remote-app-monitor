@@ -186,6 +186,22 @@ async def test_web_custom_page_and_static_dir(tmp_path):
         assert (await client.get("/static/site.css")).status == 200
 
 
+async def test_web_serves_its_themes():
+    dashboard = WebDashboard(theme="terminal")
+    async with TestClient(TestServer(dashboard.app(Monitor()))) as client:
+        script = await client.get("/_sightglass/theme.js")
+        assert script.status == 200
+        assert script.content_type == "text/javascript"
+        assert 'let theme = "terminal"' in await script.text()  # the default
+        for asset in ["terminal.css", "fonts/VT323-latin.woff2"]:
+            assert (await client.get(f"/_sightglass/{asset}")).status == 200, asset
+
+
+def test_web_rejects_unknown_themes():
+    with pytest.raises(ValueError, match="classic or terminal, not 'neon'"):
+        WebDashboard(theme="neon")
+
+
 def test_web_rejects_missing_page(tmp_path):
     with pytest.raises(FileNotFoundError):
         WebDashboard(tmp_path / "nope.html")

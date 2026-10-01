@@ -54,6 +54,19 @@ def test_build_zmq_pull_and_terminal(monkeypatch):
     assert isinstance(outputs[0], TerminalDisplay)
 
 
+def test_theme_option_reaches_both_kinds_of_page(monkeypatch):
+    monkeypatch.setattr("sys.stdin", Terminal())
+    _, _, (web,) = build(args("--theme", "terminal"))
+    assert web.theme == "terminal"
+
+    from sightglass.cli import main
+
+    launched = {}
+    monkeypatch.setattr("sightglass.launch.run", lambda **kw: launched.update(kw))
+    assert main(["--demo", "launch", "--theme", "terminal"]) == 0
+    assert launched["theme"] == "terminal"
+
+
 def test_build_reads_piped_stdin(monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO("a=1\n"))  # a pipe
     _, sources, _ = build(args())
