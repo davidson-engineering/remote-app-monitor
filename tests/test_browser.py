@@ -24,6 +24,8 @@ from sightglass import (
     WebDashboard,
 )
 
+from .conftest import until
+
 pytestmark = pytest.mark.browser
 
 
@@ -263,6 +265,105 @@ async def test_generic_page_draws_declared_and_new_elements(page, serve):
     await expect(page.locator(".row", has_text="Job")).to_contain_text("25.0%")
     await expect(page.locator(".row", has_text="status")).to_contain_text("ok")
     await expect(page.locator("#connection")).to_have_text("Live")
+
+
+async def test_signals_panel_lists_every_value_sent_with_its_last_minute(page, serve):
+    monitor = Monitor()
+    monitor.add(RangeBar("speed", max_value=200, units="km/h"))
+    monitor.update({"speed": 50, "axis10.pos": 2, "axis2.pos": 1, "status": "ok"})
+    sockets = []
+    page.on("websocket", lambda socket: sockets.append(socket))
+    await page.goto(serve(None, monitor))
+    await page.locator("[data-signals-open]").click()
+
+    panel = page.locator("sightglass-signals")  # locators reach into its shadow root
+    await expect(panel.locator("dialog")).to_be_visible()
+    await expect(panel).to_have_attribute("data-scheme", "system")  # light or dark
+    rows = panel.locator("tbody tr")
+    await expect(rows.locator("th")).to_have_text(  # numbers in ids count as numbers
+        ["axis2.pos", "axis10.pos", "speed", "status"]
+    )
+    await expect(panel.locator(".count")).to_have_text("4")
+    speed = rows.filter(has_text="speed")
+    await expect(speed.locator(".value")).to_have_text("50")  # not "50.00 km/h"
+    await expect(speed.locator("path")).to_have_attribute("d", re.compile(r"^M"))
+    status = rows.filter(has_text="status")
+    await expect(status.locator(".value")).to_have_text("ok")
+    await expect(status.locator("path")).not_to_have_attribute("d", re.compile(""))
+
+    monitor.update({"speed": 120, "pump": True})
+    await expect(speed.locator(".value")).to_have_text("120")
+    await expect(rows).to_have_count(5)
+
+    await page.keyboard.type("AXIS")  # typing filters, by id, ignoring case
+    await expect(panel.locator("input")).to_have_value("AXIS")
+    await expect(panel.locator(".count")).to_have_text("2 of 5")
+    await expect(panel.locator("tbody tr:not([hidden]) th")).to_have_text(
+        ["axis2.pos", "axis10.pos"]
+    )
+    await page.keyboard.type("x")
+    empty = panel.locator(".empty")
+    await expect(empty).to_have_text("No signal matches \u201cAXISx\u201d.")
+
+    await panel.locator(".close").click()
+    await expect(panel.locator("dialog")).to_be_hidden()
+    feed = next(s for s in sockets if s.url.endswith("/ws/signals"))
+    await until(feed.is_closed)  # nothing streams while it's closed
+
+
+async def test_signals_panel_charts_are_one_line_forward_in_time(page, serve):
+    """A switch flipping, or a value swinging within half a second, is one line
+    through its lowest and highest values: never an outline doubling back."""
+    monitor = Monitor()
+    monitor.set("pump", True)
+    await page.goto(serve(None, monitor))
+    await page.keyboard.press("Backquote")
+    pump = page.locator("sightglass-signals tbody tr")
+    for value in [False, True, False, True, False]:  # across two or three slots
+        monitor.set("pump", value)
+        await asyncio.sleep(0.2)
+    await expect(pump.locator(".value")).to_have_text("False")
+    await page.wait_for_timeout(100)  # drawn on the next frame
+    line = await pump.locator("path").get_attribute("d")
+    assert "Z" not in line
+    xs = [float(x) for x in re.findall(r"[ML](-?[\d.]+),", line)]
+    assert len(xs) >= 4
+    assert xs == sorted(xs)  # never back over itself
+
+
+async def test_signals_panel_opens_on_any_page_with_the_backquote_key(page, serve):
+    monitor = Monitor()
+    monitor.set("pump", "on")
+    head = (
+        '<script src="/_sightglass/theme.js"></script>'
+        '<link rel="stylesheet" href="/_sightglass/terminal.css">'
+    )
+    await page.goto(serve('<input id="note">', monitor, theme="terminal", head=head))
+    await expect(page.locator("html")).to_have_attribute("data-connection", "open")
+    note = page.locator("#note")
+    await note.press_sequentially("a`b")  # typing a ` in the page is just typing
+    await expect(note).to_have_value("a`b")
+    await expect(page.locator("sightglass-signals")).to_have_count(0)
+
+    await note.blur()
+    await page.keyboard.press("Backquote")
+    panel = page.locator("sightglass-signals")
+    await expect(panel.locator("dialog")).to_be_visible()
+    await expect(panel.locator("tbody th")).to_have_text(["pump"])
+    await expect(panel.locator("tbody .value")).to_have_text("on")
+    await expect(panel.locator("tbody path")).to_have_attribute("d", re.compile(r"^M"))
+    # It follows the page: its theme, and its color-scheme (terminal.css: dark).
+    await expect(panel).to_have_attribute("data-theme", "terminal")
+    await expect(panel).to_have_attribute("data-scheme", "dark")
+    await page.evaluate("document.documentElement.dataset.theme = 'classic'")
+    await expect(panel).to_have_attribute("data-theme", "classic")
+
+    await page.keyboard.press("Backquote")
+    await expect(panel.locator("dialog")).to_be_hidden()
+    await page.keyboard.press("Backquote")  # and again
+    await expect(panel.locator("dialog")).to_be_visible()
+    await page.keyboard.press("Escape")
+    await expect(panel.locator("dialog")).to_be_hidden()
 
 
 async def test_launch_demo_page_comes_alive(page):

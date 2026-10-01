@@ -39,6 +39,9 @@ a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
 - **Plain HTML dashboards.** Mark any element `data-bind="<id>"` and it stays
   live; CSS can turn values into gauges, levels and lamps, like the panel
   above. Otherwise a clean generic page is generated.
+- **See what actually arrives.** Press `` ` `` on any dashboard page for the
+  [signals panel](#signals-panel): every id received, its value as sent and a
+  chart of its last minute, so a misspelt id or a feed that stopped is obvious.
 
 ## Install
 
@@ -337,6 +340,21 @@ Object values are flattened, so a `RangeBar` binds as `<id>.text` and
 `MachineState` as `<id>.<state>`. `panel.css` provides the segment display
 (`.lcd`, `.lcd-field`) and LED (`.led`, `.led-red`, `.led-amber`) styles.
 Files in `static_dir` are served under `/static/`.
+
+#### Signals panel
+
+Every page that loads `sightglass.js` (the generic page, the launch demo,
+yours) has a panel for checking what a feed sends: press `` ` `` (or click
+**Signals** on the generic page, or an element of yours marked
+`data-signals-open`). It lists every id the dashboard has accepted, its latest
+value as sent (before an element scales or formats it), how long ago it
+arrived, and a chart of its last minute. The charts share one time axis, so
+what changed together lines up; the line reaches the lowest and highest value
+of each half second, so a fast swing isn't lost, and booleans and on/off chart
+as steps. Type to filter by id; `` ` `` or Escape closes it. It streams over a
+WebSocket of its own (`/ws/signals`) only while open.
+
+![The signals panel over the launch demo: every id with its value and a chart of the last minute, from the end of the countdown through liftoff](docs/signals-panel.png)
 
 #### Themes
 

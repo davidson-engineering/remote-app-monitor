@@ -1,15 +1,15 @@
 """Take the README's screenshots of the launch demo: its page in both themes,
-and its terminal screen.
+its signals panel, and its terminal screen.
 
     uv run --all-extras python docs/screenshot.py
 
 Runs `sightglass --demo launch --terminal` from the start of its countdown in
 a 120 x 36 pseudo-terminal, as someone trying it would (on port 8080, as the
 README shows). 52 seconds after liftoff (about 80 s from now), just past
-maximum aerodynamic pressure, it photographs the page the demo serves and
-draws what it printed with xterm.js, a real terminal emulator (fetched from
-jsDelivr). Needs Chromium once: uv run playwright install chromium. macOS
-and Linux (it uses a pty).
+maximum aerodynamic pressure, it photographs the page the demo serves (and
+its signals panel, the minute up to then) and draws what it printed with
+xterm.js, a real terminal emulator (fetched from jsDelivr). Needs Chromium
+once: uv run playwright install chromium. macOS and Linux (it uses a pty).
 """
 
 import fcntl
@@ -97,6 +97,13 @@ def main() -> None:
             page.screenshot(path=DOCS / "launch-control.png")
             # The latest whole frame: each one starts by moving the cursor home.
             frame = printed.decode("utf-8", "replace").split("\x1b[H")[-2]
+            page.keyboard.press("Backquote")  # the signals panel
+            panel = page.locator("sightglass-signals")
+            panel.locator("tbody tr").first.wait_for()
+            page.wait_for_timeout(300)  # its charts drawn
+            page.screenshot(path=DOCS / "signals-panel.png", animations="disabled")
+            page.keyboard.press("Backquote")
+            panel.locator("dialog").wait_for(state="hidden")
             # The same moment in the terminal theme (its switch, as a viewer would).
             page.locator("[data-theme-switch]").click()
             # Its bigger type makes the page taller: show all of it, in a
@@ -125,7 +132,10 @@ def main() -> None:
         demo.wait(10)
         os.close(controller)
         (DOCS / "sightglass.log").unlink(missing_ok=True)
-    print("Saved launch-control.png, launch-terminal-theme.png, launch-terminal.png")
+    print(
+        "Saved launch-control.png, signals-panel.png, launch-terminal-theme.png, "
+        "launch-terminal.png"
+    )
 
 
 if __name__ == "__main__":

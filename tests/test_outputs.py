@@ -227,6 +227,35 @@ async def test_web_resends_layout_when_elements_appear(client):
     await ws.close()
 
 
+async def test_web_streams_every_signal_with_its_last_minute(client):
+    client.monitor.update({"speed": 3})
+    ws = await client.ws_connect("/ws/signals")
+    snapshot = await ws.receive_json(timeout=1)
+    assert snapshot["type"] == "snapshot"
+    assert (snapshot["resolution"], snapshot["slots"]) == (0.5, 120)
+    assert snapshot["from"] == snapshot["slot"] - 119
+    speed = snapshot["signals"]["speed"]
+    assert (speed["text"], speed["number"]) == ("3", 3)
+    assert len(speed["trace"]) == 120
+    assert speed["trace"][-1] == 3
+
+    # Then what changed, with its slots since the previous message.
+    client.monitor.update({"X.velocity": "12.5"})
+    while not (update := await ws.receive_json(timeout=1))["signals"]:
+        pass  # a new slot started first
+    assert update["type"] == "update"
+    assert list(update["signals"]) == ["X.velocity"]  # as sent, not "12.50 mm/s"
+    velocity = update["signals"]["X.velocity"]
+    assert (velocity["text"], velocity["number"]) == ("12.5", 12.5)
+    assert len(velocity["trace"]) == update["slot"] - update["from"] + 1
+
+    # Every slot, even with nothing new, so the page's charts move on.
+    tick = await ws.receive_json(timeout=1)
+    assert tick["signals"] == {}
+    assert tick["from"] == update["slot"] < tick["slot"]
+    await ws.close()
+
+
 @pytest.mark.parametrize(
     ("body", "expected"),
     [

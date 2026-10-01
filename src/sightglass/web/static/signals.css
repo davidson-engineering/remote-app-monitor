@@ -1,0 +1,459 @@
+/*
+ * The signals panel (signals.js), inside its shadow root: nothing here
+ * reaches the page, and nothing from the page reaches in but the --crt-*
+ * colours and fonts of the terminal theme (terminal.css), which it uses when
+ * the page is in that theme.
+ */
+
+:host {
+  all: initial; /* the page's fonts and colours stop here */
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1d2025;
+  --muted: #69707a;
+  --line: #e3e6ea;
+  --accent: #2f6fed;
+  --warn: #9a5b00;
+  --backdrop: rgb(15 18 22 / 0.4);
+  --font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --code: 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+/* Dark on a dark-only page (its color-scheme), otherwise as the system. */
+:host([data-scheme="dark"]) {
+  color-scheme: dark;
+  --bg: #111315;
+  --card: #1b1e21;
+  --text: #e8eaed;
+  --muted: #9aa1a9;
+  --line: #2c3034;
+  --accent: #6ea0ff;
+  --warn: #f2a900;
+  --backdrop: rgb(0 0 0 / 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :host([data-scheme="system"]) {
+    color-scheme: dark;
+    --bg: #111315;
+    --card: #1b1e21;
+    --text: #e8eaed;
+    --muted: #9aa1a9;
+    --line: #2c3034;
+    --accent: #6ea0ff;
+    --warn: #f2a900;
+    --backdrop: rgb(0 0 0 / 0.55);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+dialog {
+  width: min(960px, 100vw - 32px);
+  max-width: none;
+  max-height: min(760px, 100dvh - 48px);
+  /* Anchored at the top, so it grows downward as signals arrive. */
+  margin: clamp(24px, 8vh, 96px) auto auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font: var(--font);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.24);
+}
+
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog:focus {
+  outline: none;
+}
+
+dialog::backdrop {
+  background: var(--backdrop);
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  color: var(--warn);
+  font-size: 13px;
+}
+
+.status:empty {
+  display: none;
+}
+
+input {
+  width: min(240px, 100%);
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+input::placeholder {
+  color: var(--muted);
+}
+
+button {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:hover {
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate; /* keeps the sticky header's rule */
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+col.name {
+  width: 34%;
+}
+
+col.value {
+  width: 18%;
+}
+
+col.age {
+  width: 92px;
+}
+
+th,
+td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+th:first-child,
+td:first-child {
+  padding-left: 16px;
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 16px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+tbody th {
+  font: var(--code);
+  font-weight: 400;
+}
+
+tbody tr:hover {
+  background: var(--bg);
+}
+
+tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.group {
+  color: var(--muted);
+}
+
+.value {
+  font: var(--code);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart {
+  color: var(--accent);
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: 20px;
+  overflow: visible;
+}
+
+.chart path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.age {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--muted);
+}
+
+/* Phones: the filter on a line of its own, and no time column. */
+@media (max-width: 560px) {
+  dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    margin-top: 8px;
+  }
+
+  input {
+    order: 1;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .close {
+    margin-left: auto;
+  }
+
+  /* Room for "-1.23457e-05", the longest number shown: never cut a number short. */
+  col.name {
+    width: 34%;
+  }
+
+  col.value {
+    width: 34%;
+  }
+
+  col.age,
+  .age {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :host([data-theme="classic"]) dialog[open] {
+    animation: rise 140ms ease-out;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+/* -- the terminal theme ----------------------------------------------------- */
+
+:host([data-theme="terminal"]) {
+  color-scheme: dark;
+  --bg: var(--crt-bg, #020402);
+  --card: var(--crt-bg, #020402);
+  --text: var(--crt-fg, #5cff8a);
+  --muted: var(--crt-dim, #3dbd66);
+  --line: var(--crt-grid, #123a20);
+  --accent: var(--crt-fg, #5cff8a);
+  --warn: var(--crt-amber, #ffb22e);
+  --backdrop: rgb(0 0 0 / 0.7);
+  --font: 20px/1.25 var(--crt-font, monospace);
+  --code: var(--font);
+}
+
+:host([data-theme="terminal"]) col.age {
+  width: 104px;
+}
+
+:host([data-theme="terminal"]) dialog {
+  border: 3px double var(--crt-rule, #1d5c33);
+  border-radius: 0;
+  box-shadow: none;
+  letter-spacing: 0.02em;
+  scrollbar-color: var(--crt-rule, #1d5c33) var(--crt-bg, #020402);
+}
+
+/* An inverted status bar, as on the page. */
+:host([data-theme="terminal"]) header {
+  padding: 4px 12px;
+  border: 0;
+  background: var(--crt-fg, #5cff8a);
+  color: var(--crt-bg, #020402);
+}
+
+:host([data-theme="terminal"]) h2 {
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:host([data-theme="terminal"]) .count,
+:host([data-theme="terminal"]) .status {
+  color: var(--crt-bg, #020402);
+  font-size: 20px;
+  text-transform: uppercase; /* as the page's status bar */
+}
+
+:host([data-theme="terminal"]) .status {
+  padding: 0 6px;
+  background: var(--warn);
+}
+
+:host([data-theme="terminal"]) input {
+  border: 0;
+  border-radius: 0;
+  background: var(--crt-bg, #020402);
+  color: var(--crt-fg, #5cff8a);
+  font-size: 20px;
+  caret-color: var(--crt-bright, #c2ffd2);
+}
+
+:host([data-theme="terminal"]) input::placeholder {
+  color: var(--crt-muted, #2f9150);
+  text-transform: uppercase;
+}
+
+:host([data-theme="terminal"]) button {
+  padding: 2px 8px;
+  border: 1px solid var(--crt-bg, #020402);
+  border-radius: 0;
+  color: var(--crt-bg, #020402);
+  font-size: 20px;
+  text-transform: uppercase;
+}
+
+:host([data-theme="terminal"]) button::before {
+  content: "[";
+}
+
+:host([data-theme="terminal"]) button::after {
+  content: "]";
+}
+
+:host([data-theme="terminal"]) :focus-visible {
+  outline-color: var(--crt-bright, #c2ffd2);
+}
+
+:host([data-theme="terminal"]) thead th {
+  border-bottom-color: var(--crt-rule, #1d5c33);
+  color: var(--crt-bright, #c2ffd2);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+:host([data-theme="terminal"]) tbody tr:hover {
+  background: var(--crt-surface, #06100a);
+}
+
+:host([data-theme="terminal"]) .group {
+  color: var(--crt-muted, #2f9150);
+}
+
+:host([data-theme="terminal"]) .chart svg {
+  height: 24px;
+}
+
+@media (forced-colors: none) {
+  :host([data-theme="terminal"][data-crt="on"]) dialog {
+    text-shadow: var(--crt-glow);
+  }
+
+  :host([data-theme="terminal"][data-crt="on"]) header {
+    text-shadow: none;
+  }
+
+  :host([data-theme="terminal"][data-crt="on"]) .chart svg {
+    filter: drop-shadow(0 0 3px rgb(92 255 138 / 0.6));
+  }
+
+  /* The page's scanlines are under the panel (it's drawn above everything): its own. */
+  :host([data-theme="terminal"][data-crt="on"]) dialog::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0) 0 2px, rgb(0 0 0 / 0.24) 2px 3px);
+  }
+}
+
+@media (forced-colors: none) and (prefers-reduced-motion: no-preference) {
+  /* Drawn by the raster, top to bottom, like the page's panels. */
+  :host([data-theme="terminal"][data-crt="on"]) dialog[open] {
+    animation: draw 0.24s steps(6, end);
+  }
+}
+
+@keyframes draw {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
