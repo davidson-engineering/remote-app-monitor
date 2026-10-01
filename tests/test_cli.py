@@ -3,7 +3,6 @@
 import asyncio
 import io
 import json
-import os
 import re
 import subprocess
 import sys
@@ -21,6 +20,8 @@ from sightglass import (
     ZmqSource,
 )
 from sightglass.cli import build, parser
+
+from .conftest import run_cli, stop
 
 
 def args(*argv):
@@ -67,6 +68,12 @@ def test_theme_option_reaches_both_kinds_of_page(monkeypatch):
     assert launched["theme"] == "terminal"
 
 
+def test_ads_names_split_on_commas_outside_array_indexes():
+    from sightglass.cli import split_names
+
+    assert split_names("MAIN.*, GVL.a[1,2],GVL.b") == ["MAIN.*", "GVL.a[1,2]", "GVL.b"]
+
+
 def test_build_reads_piped_stdin(monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO("a=1\n"))  # a pipe
     _, sources, _ = build(args())
@@ -81,6 +88,13 @@ def test_build_reads_piped_stdin(monkeypatch):
         (["--pull"], "--pull goes with --zmq"),
         (["--serial", "auto", "--binary", "X=1"], "BYTE=NAME"),
         (["--demo", "launch", "--title", "X"], "its own page and data; drop --title"),
+        (["--vars", "MAIN.*"], "--vars and --allow-writes go with --ads"),
+        (["--ads", "5.1.2.3.1.1"], "--ads needs --vars naming what to show"),
+        (
+            ["--ads", "5.1.2.3.1.1", "--vars", "MAIN.*", "--allow-writes"],
+            "--allow-writes needs an interface file",
+        ),
+        (["--ads", "plc.toml", "--allow-writes"], "--allow-writes needs --token"),
     ],
 )
 def test_bad_combinations_are_explained(argv, message, capsys):
@@ -90,36 +104,9 @@ def test_bad_combinations_are_explained(argv, message, capsys):
     assert message in capsys.readouterr().err
 
 
-def run_cli(
-    *argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, cwd=None, env=None
-):
-    """Start the command; return it and the dashboard URL it prints."""
-    process = subprocess.Popen(
-        [sys.executable, "-m", "sightglass", "--port", "0", *argv],
-        stdin=stdin,
-        stdout=stdout,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",  # output cut short by stopping it can end mid-character
-        cwd=cwd,
-        env={**os.environ, "PYTHONUNBUFFERED": "1", **(env or {})},
-    )
-    line = process.stderr.readline()
-    assert line.startswith("Dashboard: http://"), line
-    return process, line.split()[1]
-
-
 async def snapshot(url):
     async with aiohttp.ClientSession() as session, session.ws_connect(f"{url}ws") as ws:
         return (await ws.receive_json(timeout=5))["values"]
-
-
-def stop(process):
-    process.terminate()
-    if process.stdin is not None and process.stdin.closed:
-        process.stdin = None  # Python < 3.13's communicate() chokes on it
-    return process.communicate(timeout=10)
 
 
 def test_pipe_a_programs_output():

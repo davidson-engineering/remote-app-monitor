@@ -9,13 +9,14 @@ creates its display. Print this guide from any project with
 ## 1. Install
 
 ```bash
-pip install "sightglass[web]"     # add serial / zmq extras as needed, or [all]
+pip install "sightglass[web]"     # add serial / zmq / ads extras as needed, or [all]
 # until it is on PyPI:
 pip install "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass"
 ```
 
 Python 3.11+. The package has no required dependencies; `[web]` adds
-aiohttp for the browser dashboard, `[serial]` pyserial, `[zmq]` pyzmq.
+aiohttp for the browser dashboard, `[serial]` pyserial, `[zmq]` pyzmq,
+`[ads]` pyads (Beckhoff PLCs).
 
 ## 2. Pick the integration
 
@@ -27,6 +28,7 @@ aiohttp for the browser dashboard, `[serial]` pyserial, `[zmq]` pyzmq.
 | A separate Python process should report to a shared dashboard | `Client().set(id, value)` (standard library only) |
 | A microcontroller on a serial port | `sightglass --serial auto --csv a,b,c` (or `--json`, `--binary`) |
 | A ZeroMQ publisher | `sightglass --zmq ENDPOINT` (`--pull` for PUSH senders: nothing lost) |
+| A Beckhoff TwinCAT PLC (ADS) | `sightglass --ads NETID --vars 'MAIN.*'`, or an interface file: `sightglass --ads plc.toml` |
 | An asyncio program | `await monitor.run(outputs=[WebDashboard()])` in a task |
 | Just show the user what it looks like | `sightglass --demo --open` (every display), `sightglass --demo launch --open` (a hand-built page) |
 
@@ -148,6 +150,51 @@ device = SerialSource("auto", 115200, decoder=CsvDecoder(["temperature", "humidi
 monitor.serve(sources=[device])  # runs until Ctrl+C
 ```
 
+### A Beckhoff TwinCAT PLC (ADS)
+
+```bash
+sightglass --ads 5.12.34.56.1.1 --vars 'MAIN.*,GVL.fTemperature'   # :851 by default
+sightglass --ads plc.toml                                          # an interface file
+```
+
+Ids are the PLC's variable names; structs and arrays give one id per member
+(`MAIN.stAxis.fPosition`, `GVL.aTemps[1]`). `*` in a name matches top-level
+variables only; name struct members exactly, or declare the struct. An
+interface file names the PLC, the variables and their types:
+
+```toml
+target = "5.12.34.56.1.1:851"
+types = """
+TYPE ST_Axis :
+STRUCT
+    fPosition : LREAL;
+    bEnabled  : BOOL;
+END_STRUCT
+END_TYPE
+"""
+
+[variables]
+"MAIN.stAxis1" = "ST_Axis"
+"GVL.fTemperature" = {}
+"GVL.nSetpoint" = { write = true }
+```
+
+`types` is Structured Text pasted from the PLC project (structs, enums,
+aliases, `pack_mode` attributes). In Python: `AdsSource("5.12.34.56.1.1",
+["MAIN.*"])` or `AdsSource.from_file("plc.toml")`, passed in `sources=[...]`.
+
+- **Writes are off unless all four hold:** `write = true` on the variable,
+  `--allow-writes` (`allow_writes=True`), `SIGHTGLASS_ALLOW_WRITES=1` in the
+  environment, and `--token` on the dashboard (writes over HTTP need it). Then
+  `curl -H 'Authorization: Bearer TOKEN' -d 'GVL.nSetpoint=75' .../update`
+  writes; 204 means the PLC took it, 403/400/409 say why not. Never enable
+  writes unless the user asked for them.
+- **Linux and macOS:** the PLC needs a route to this machine. If it doesn't
+  answer, the warning names the AMS net id and IP address to add.
+- **Windows:** needs TwinCAT's ADS router installed (XAE, XAR or TC1000).
+- Warnings name every variable that couldn't be read and why (unknown name,
+  undeclared struct type, size mismatch with the declaration); read them.
+
 ## 4. Ids and values
 
 - An id is any string. Dots group: `job.rate` is shown as `rate` under a `job`
@@ -259,7 +306,7 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
 3. For pushed values, `curl -s -o /dev/null -w '%{http_code}' -d 'check=1'
    http://127.0.0.1:8080/update` prints `204`.
 4. Warnings (bad values, unknown ids with `strict=True`, a missing serial
-   device) go to stderr; read them.
+   device, PLC variables left out) go to stderr; read them.
 5. Look at the page in a browser if you can: values change live and the
    status says "Live".
 

@@ -145,3 +145,21 @@ No microcontroller? On macOS or Linux, [fake_device.py](fake_device.py) creates
 a virtual serial port that streams to the panel, so you can exercise the real
 serial path: run `uv run --all-extras examples/fake_device.py` and pass the
 port it prints to the dashboard with `--port`.
+
+## 9. A Beckhoff PLC over ADS
+
+Variables from a TwinCAT PLC, described in an interface file: the PLC's
+address, the variables to show, struct and enum types pasted from the PLC
+project, and the one variable that may be written. [plc.toml](plc.toml) is
+commented; download it, change `target` and the variables to match your PLC,
+and run:
+
+```bash
+uvx --from "sightglass[web,ads] @ git+https://github.com/davidson-engineering/sightglass" sightglass --ads plc.toml --open
+```
+
+This one needs a PLC, or a PC running a TwinCAT runtime. On
+Linux and macOS the PLC needs a route to this computer; sightglass says what
+to add if it doesn't answer. Writing also needs `--allow-writes`, `--token`
+and `SIGHTGLASS_ALLOW_WRITES=1`: see
+[the README](../README.md#beckhoff-twincat-plcs-ads).

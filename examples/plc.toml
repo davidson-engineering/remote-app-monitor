@@ -1,0 +1,59 @@
+# An interface file: which Beckhoff TwinCAT PLC to read, what to show, and
+# what may be written. Run it with:
+#
+#     sightglass --ads plc.toml
+#
+# Change target and the variables to match your PLC project.
+
+# The PLC's AMS net id (or IP address), and port: 851 is the first TwinCAT 3
+# PLC, 801 TwinCAT 2.
+target = "5.12.34.56.1.1:851"
+
+# The PLC's IP address, if it isn't the first four parts of the net id.
+# ip = "192.168.1.10"
+
+# Seconds between reads (all the variables are read in one request).
+interval = 0.1
+
+# Struct, enum and alias types, as declared in the PLC project: paste the
+# DUTs. A variable of one of these types is shown member by member, and its
+# size is checked against the PLC's. TwinCAT 3 aligns members to their size
+# (up to 8 bytes); copy any {attribute 'pack_mode' := '1'} along with the type.
+types = """
+TYPE ST_Axis :
+STRUCT
+    fPosition : LREAL;   // mm
+    fVelocity : LREAL;   // mm/s
+    bEnabled  : BOOL;
+    bError    : BOOL;
+    sState    : STRING(20);
+END_STRUCT
+END_TYPE
+
+TYPE E_Mode :
+(
+    eIdle := 0,
+    eHoming,
+    eRunning
+) UINT;
+END_TYPE
+"""
+
+[variables]
+# A struct from types above: one value per member (MAIN.stAxis1.fPosition, ...).
+"MAIN.stAxis1" = "ST_Axis"
+"MAIN.stAxis2" = "ST_Axis"
+
+# Plain variables need no type: the PLC says what they are. An enum declared
+# in types is shown by name.
+"MAIN.eMode" = {}
+"GVL.fTemperature" = {}
+
+# Every top-level variable of MAIN that is a number, text, an array of them,
+# or a type declared above.
+"MAIN.*" = {}
+
+# Values sent to this one (curl, Client, monitor.set) are written to the PLC,
+# but only when sightglass is started with --allow-writes and --token, and the
+# environment variable SIGHTGLASS_ALLOW_WRITES is 1.
+"GVL.nSetpoint" = { write = true }

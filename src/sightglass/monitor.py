@@ -7,6 +7,7 @@ import atexit
 import concurrent.futures
 import contextlib
 import logging
+import os
 import threading
 from collections.abc import (
     AsyncIterator,
@@ -31,6 +32,35 @@ Update = Mapping[str, Any]
 # so a noisy link can't grow memory without bound.
 _MAX_REPORTED_KEYS = 1000
 
+WRITES_ENV = "SIGHTGLASS_ALLOW_WRITES"
+"""The environment variable that must be ``1`` for any value to be written to
+a device, whatever the source's own setting."""
+
+
+def writes_permitted() -> bool:
+    """Whether this machine allows writes to devices: ``SIGHTGLASS_ALLOW_WRITES=1``."""
+    return os.environ.get(WRITES_ENV) == "1"
+
+
+def writes_guard_message() -> str:
+    return (
+        f"writes to devices are off on this machine: set {WRITES_ENV}=1 to allow them"
+    )
+
+
+class WriteError(Exception):
+    """Values that were not written to a device: :attr:`failures` maps each id
+    to the exception saying why (PermissionError when writing isn't allowed,
+    ValueError for a value that doesn't fit, anything else for a device
+    that failed). Nothing is retried."""
+
+    def __init__(self, failures: Mapping[str, BaseException]) -> None:
+        self.failures = dict(failures)
+        super().__init__(
+            "; ".join(f"{id}: {error}" for id, error in self.failures.items())
+        )
+
+
 T = TypeVar("T")
 
 
@@ -45,7 +75,15 @@ class Group:
 
 
 class Source(Protocol):
-    """Something that produces batches of updates, e.g. one per chunk read."""
+    """Something that produces batches of updates, e.g. one per chunk read.
+
+    A source that can also write to its device defines ``claims(id) -> bool``,
+    true for the ids it reads, and ``async def write(update)``, which writes
+    ``{id: value}`` to the device or raises :class:`WriteError`. Values sent to
+    a claimed id with :meth:`Monitor.update`, :meth:`Monitor.set` or
+    ``POST /update`` then go to ``write()`` rather than to the display, which
+    keeps showing what the source reads back.
+    """
 
     def updates(self) -> AsyncIterator[list[Update]]: ...
 
@@ -74,6 +112,9 @@ class Monitor:
     field (``"status.motor1.speed"`` updates field ``"motor1.speed"`` of
     element ``"status"``).
 
+    Values for ids that a running source claims (see :class:`Source`) are
+    written to its device instead of being shown, if writes are allowed.
+
     ``update``, ``set``, ``add`` and ``add_group`` may be called from any
     thread. Every applied batch bumps :attr:`version`; outputs use
     :meth:`wait_for_change` and :meth:`changes_since` to redraw only when, and
@@ -99,6 +140,8 @@ class Monitor:
         self._thread: threading.Thread | None = None
         self._task: asyncio.Task[None] | None = None
         self._outputs: list[Output] = []
+        self._writers: list[Any] = []  # running sources that can write
+        self._writing: set[asyncio.Task[None]] = set()
 
     # -- building -----------------------------------------------------------
 
@@ -197,18 +240,87 @@ class Monitor:
         Values an element rejects (and unknown ids, with ``strict=True``) are
         logged once per id and skipped; they never interrupt the rest of the
         batch. From another thread this returns immediately and the monitor's
-        event loop applies the updates, in order, a moment later.
+        event loop applies the updates, in order, a moment later. Values for
+        ids a source claims are written to its device, in order; failures are
+        logged like rejected values (use :meth:`submit` to wait for them).
         """
         if loop := self._loop_elsewhere():
             batch = [dict(mapping) for mapping in updates]
             with contextlib.suppress(RuntimeError):  # loop closed meanwhile
-                loop.call_soon_threadsafe(self._apply_all, batch)
+                loop.call_soon_threadsafe(self._receive, batch)
                 return
-        self._apply_all(updates)
+        self._receive(updates)
 
     def set(self, id: str, value: Any) -> None:
         """Update a single element (or field)."""
         self.update({id: value})
+
+    async def submit(self, *updates: Update) -> None:
+        """Like :meth:`update`, but wait for the values that go to devices and
+        raise :class:`WriteError` for any that weren't written. Call it on the
+        monitor's event loop (the web dashboard does, for ``POST /update``)."""
+        local, writes = self._split(updates)
+        self._apply_all(local)
+        if writes:
+            await self._write(writes)
+
+    def claims(self, id: str) -> bool:
+        """Whether updates to ``id`` go to a running source's device."""
+        return any(source.claims(id) for source in self._writers)
+
+    def _receive(self, updates: Iterable[Update]) -> None:
+        if not self._writers:
+            self._apply_all(updates)
+            return
+        local, writes = self._split(updates)
+        self._apply_all(local)
+        if writes:
+            task = asyncio.get_running_loop().create_task(self._write_logged(writes))
+            self._writing.add(task)
+            task.add_done_callback(self._writing.discard)
+
+    def _split(
+        self, updates: Iterable[Update]
+    ) -> tuple[list[Update], dict[Any, dict[str, Any]]]:
+        """Separate values to show from values to write, per source."""
+        local: list[Update] = []
+        writes: dict[Any, dict[str, Any]] = {}
+        for mapping in updates:
+            shown = {}
+            for key, value in mapping.items():
+                for source in self._writers:
+                    if source.claims(key):
+                        writes.setdefault(source, {})[key] = value
+                        break
+                else:
+                    shown[key] = value
+            if shown:
+                local.append(shown)
+        return local, writes
+
+    async def _write(self, writes: dict[Any, dict[str, Any]]) -> None:
+        failures: dict[str, BaseException] = {}
+        for source, update in writes.items():
+            if not writes_permitted():
+                failures.update(
+                    dict.fromkeys(update, PermissionError(writes_guard_message()))
+                )
+                continue
+            try:
+                await source.write(update)
+            except WriteError as error:
+                failures.update(error.failures)
+            except Exception as error:
+                failures.update(dict.fromkeys(update, error))
+        if failures:
+            raise WriteError(failures)
+
+    async def _write_logged(self, writes: dict[Any, dict[str, Any]]) -> None:
+        try:
+            await self._write(writes)
+        except WriteError as error:
+            for id, reason in error.failures.items():
+                self._reject(id, f"not written: {reason}")
 
     def _apply_all(self, updates: Iterable[Update]) -> None:
         changed = []
@@ -454,6 +566,12 @@ class Monitor:
             raise
 
     async def _run(self, sources: list[Source], outputs: list[Output]) -> None:
+        self._writers = [
+            source
+            for source in sources
+            if callable(getattr(source, "claims", None))
+            and callable(getattr(source, "write", None))
+        ]
         try:
             async with asyncio.TaskGroup() as tasks:
                 for source in sources:
@@ -464,6 +582,11 @@ class Monitor:
             if len(group.exceptions) == 1:  # the usual case: show just that error
                 raise group.exceptions[0] from None
             raise
+        finally:
+            self._writers = []
+            for task in list(self._writing):
+                task.cancel()
+            await asyncio.gather(*self._writing, return_exceptions=True)
 
     # -- threads ------------------------------------------------------------
 

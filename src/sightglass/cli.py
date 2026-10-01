@@ -4,6 +4,7 @@ my_program | sightglass                     # key=value or JSON lines on stdout
 sightglass                                  # then: curl -d 'temp=21.5' .../update
 sightglass --serial auto --csv temp,humidity
 sightglass --zmq tcp://localhost:5556
+sightglass --ads 5.12.34.56.1.1 --vars 'MAIN.*'
 sightglass --demo
 """
 
@@ -11,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 from collections.abc import Sequence
 from importlib import resources
@@ -23,7 +25,7 @@ from .decoders import (
     JsonDecoder,
     KeyValueDecoder,
 )
-from .monitor import Monitor, Output, Source
+from .monitor import WRITES_ENV, Monitor, Output, Source
 from .sources.stdin import StdinSource
 
 EXAMPLES = """\
@@ -38,6 +40,9 @@ examples:
   sightglass --serial /dev/ttyUSB0 --binary 1=X,2=Y,10=velocity
   sightglass --zmq tcp://localhost:5556
   sightglass --zmq tcp://*:5557 --pull  receive from PUSH sockets (none are lost)
+  sightglass --ads 5.12.34.56.1.1 --vars 'MAIN.*,GVL.fTemperature'
+                                        a Beckhoff PLC over ADS
+  sightglass --ads plc.toml             the PLC, variables and types in a file
   sightglass --demo                     simulated data, every kind of element
   sightglass --demo launch --open       the showcase: a rocket launch, live
   sightglass --demo launch --terminal   ... drawn in the terminal too
@@ -87,6 +92,25 @@ def parser() -> argparse.ArgumentParser:
         "--pull",
         action="store_true",
         help="with --zmq: bind a PULL socket instead of SUB",
+    )
+    inputs.add_argument(
+        "--ads",
+        metavar="PLC",
+        help="a Beckhoff TwinCAT PLC over ADS: its AMS net id or address, "
+        "optionally :port (default 851), or an interface file (.toml)",
+    )
+    inputs.add_argument(
+        "--vars",
+        metavar="NAMES",
+        help="with --ads: PLC variables to show, comma-separated; * matches any "
+        "characters, e.g. 'MAIN.*,GVL.fTemperature'",
+    )
+    inputs.add_argument(
+        "--allow-writes",
+        action="store_true",
+        help="with an --ads interface file: write values sent to variables marked "
+        f"write = true to the PLC (needs --token, and {WRITES_ENV}=1 in the "
+        "environment)",
     )
     inputs.add_argument(
         "--demo",
@@ -159,6 +183,11 @@ def build(args: argparse.Namespace) -> tuple[Monitor, list[Source], list[Output]
     elif args.pull:
         raise ValueError("--pull goes with --zmq")
 
+    if args.ads:
+        sources.append(ads_source(args))
+    elif args.vars or args.allow_writes:
+        raise ValueError("--vars and --allow-writes go with --ads")
+
     if sys.stdin is not None and not sys.stdin.isatty() and not args.demo:
         stdin = StdinSource(echo=not args.terminal)
         stdin.on_end = lambda: _input_ended(stdin)
@@ -195,6 +224,9 @@ def launch(args: argparse.Namespace) -> None:
         "--binary": args.binary,
         "--zmq": args.zmq,
         "--pull": args.pull,
+        "--ads": args.ads,
+        "--vars": args.vars,
+        "--allow-writes": args.allow_writes,
         "--title": args.title != "Monitor",
         "--token": args.token,
         "--stale-after": args.stale_after,
@@ -227,6 +259,34 @@ def _input_ended(stdin: StdinSource) -> None:
         file=sys.stderr,
         flush=True,
     )
+
+
+def ads_source(args: argparse.Namespace) -> Source:
+    interface_file = args.ads.endswith(".toml")
+    if interface_file and args.vars:
+        raise ValueError("--vars goes with a PLC address; list them in the file")
+    if interface_file and args.allow_writes and not args.token:
+        raise ValueError(
+            "--allow-writes needs --token, so only programs that have the token "
+            "can write to the PLC"
+        )
+    if not interface_file and args.allow_writes:
+        raise ValueError(
+            "--allow-writes needs an interface file marking the variables to write"
+        )
+    if not interface_file and not args.vars:
+        raise ValueError("--ads needs --vars naming what to show, e.g. --vars 'MAIN.*'")
+
+    from . import AdsSource  # needs pyads
+
+    if interface_file:
+        return AdsSource.from_file(args.ads, allow_writes=args.allow_writes)
+    return AdsSource(args.ads, split_names(args.vars))
+
+
+def split_names(text: str) -> list[str]:
+    """Comma-separated PLC names; commas inside [] are array indexes."""
+    return [name.strip() for name in re.split(r",(?![^\[]*\])", text) if name.strip()]
 
 
 def serial_decoder(args: argparse.Namespace) -> Decoder:

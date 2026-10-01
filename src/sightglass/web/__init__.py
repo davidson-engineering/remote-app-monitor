@@ -36,7 +36,7 @@ from typing import Any
 from aiohttp import WSCloseCode, WSMsgType, web
 
 from ..decoders import DecodeError, KeyValueDecoder, flatten
-from ..monitor import Monitor
+from ..monitor import Monitor, WriteError
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,9 @@ class WebDashboard:
         port: TCP port; 0 picks a free one (see :attr:`url` once started).
         title: heading of the generic page.
         token: if set, posting to ``/update`` requires the header
-            ``Authorization: Bearer <token>``.
+            ``Authorization: Bearer <token>``. Values for a device (ids a
+            source writes, see :class:`~sightglass.monitor.Source`) are only
+            accepted over HTTP with a token.
         theme: the pages' theme unless a viewer picks another: "classic" or
             "terminal" (a phosphor-green terminal, with optional CRT effects).
         stale_after: seconds without new data after which the page dims its
@@ -230,7 +232,26 @@ class WebDashboard:
             updates = parse_posted_updates(await request.read())
         except DecodeError as error:
             raise web.HTTPBadRequest(text=f"{error}\n") from None
-        request.app[MONITOR_KEY].update(*updates)
+        monitor = request.app[MONITOR_KEY]
+        if self.token is None and (
+            claimed := [
+                key for update in updates for key in update if monitor.claims(key)
+            ]
+        ):
+            raise web.HTTPForbidden(
+                text="".join(
+                    f"{key}: values for a device are only accepted from programs "
+                    "with the dashboard's token: start it with --token\n"
+                    for key in claimed
+                )
+            )
+        try:
+            await monitor.submit(*updates)
+        except WriteError as error:
+            return web.Response(
+                status=_write_status(error),
+                text="".join(f"{id}: {why}\n" for id, why in error.failures.items()),
+            )
         return web.Response(status=204)
 
     async def _theme_script(self, request: web.Request) -> web.Response:
@@ -322,6 +343,20 @@ def parse_posted_updates(body: bytes) -> list[dict[str, Any]]:
     return [
         decoder.decode_line(line.strip()) for line in text.splitlines() if line.strip()
     ]
+
+
+def _write_status(error: WriteError) -> int:
+    """403 for writes that aren't allowed, 400 for values that don't fit, and
+    409 when the device failed. Never 5xx: Client retries those, and a write
+    must not arrive late."""
+    reasons = list(error.failures.values())
+    if any(isinstance(reason, PermissionError) for reason in reasons):
+        return 403
+    if any(
+        isinstance(reason, ValueError | TypeError | LookupError) for reason in reasons
+    ):
+        return 400
+    return 409
 
 
 async def _revalidate(request: web.Request, response: web.StreamResponse) -> None:

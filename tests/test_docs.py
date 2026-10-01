@@ -11,6 +11,7 @@ import pytest
 import sightglass
 import sightglass.client
 from sightglass.cli import guide, parser
+from sightglass.plc import parse_variables, read_interface
 
 ROOT = Path(__file__).parent.parent
 DOCS = {
@@ -35,7 +36,10 @@ def check_imports(name: str, source: str) -> None:
         ):
             module = sightglass.client if node.module.endswith("client") else sightglass
             for alias in node.names:
-                assert hasattr(module, alias.name), f"{name}: {alias.name}"
+                # __all__ also names the lazily imported classes without
+                # importing them (AdsSource can't be on Windows without TwinCAT).
+                exported = alias.name in getattr(module, "__all__", ())
+                assert exported or hasattr(module, alias.name), f"{name}: {alias.name}"
 
 
 @pytest.mark.parametrize("name", [n for n in DOCS if n != "examples/README.md"])
@@ -43,18 +47,7 @@ def test_python_snippets_compile_and_import_real_names(name):
     blocks = python_blocks(DOCS[name])
     assert blocks
     for block in blocks:
-        tree = ast.parse(block)  # raises on a syntax error
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.ImportFrom)
-                and node.module
-                and (node.module.startswith("sightglass"))
-            ):
-                module = (
-                    sightglass.client if node.module.endswith("client") else sightglass
-                )
-                for alias in node.names:
-                    assert hasattr(module, alias.name), f"{name}: {alias.name}"
+        check_imports(name, block)
 
 
 @pytest.mark.parametrize("name", DOCS)
@@ -108,3 +101,9 @@ def test_example_run_commands_point_at_files_that_exist():
     assert linked
     for relative in linked:
         assert (ROOT / relative).exists(), relative
+
+
+def test_example_interface_file_is_valid():
+    settings = read_interface(ROOT / "examples" / "plc.toml")
+    writable = [v.name for v in parse_variables(settings["variables"]) if v.write]
+    assert writable == ["GVL.nSetpoint"]

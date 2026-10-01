@@ -14,6 +14,9 @@ from sightglass import (
     TextElement,
     WebDashboard,
 )
+from sightglass.monitor import WRITES_ENV
+
+from .conftest import Device, until
 
 
 def make_monitor() -> Monitor:
@@ -363,3 +366,38 @@ def test_browser_is_only_opened_with_a_display(monkeypatch, platform, env, expec
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     assert _has_display() is expected
+
+
+@pytest.mark.parametrize(
+    ("token", "failure", "status", "reason"),
+    [
+        (None, None, 403, "only accepted from programs with the dashboard's token"),
+        ("s3cret", None, 204, ""),
+        ("s3cret", PermissionError("writes are off"), 403, "writes are off"),
+        ("s3cret", ValueError("doesn't fit INT"), 400, "doesn't fit INT"),
+        # 4xx, not 5xx: Client retries 5xx, and a write must not arrive late
+        ("s3cret", RuntimeError("the PLC refused it"), 409, "the PLC refused it"),
+    ],
+)
+async def test_web_posts_device_values_with_the_token_only(
+    monkeypatch, token, failure, status, reason
+):
+    monkeypatch.setenv(WRITES_ENV, "1")
+    monitor, device = Monitor(), Device(failure)
+    task = asyncio.create_task(monitor.run(sources=[device]))
+    await until(lambda: monitor.claims("dev.x"))
+    dashboard = WebDashboard(token=token)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        async with TestClient(TestServer(dashboard.app(monitor))) as client:
+            body = b"dev.setpoint=5 note=hi"
+            response = await client.post("/update", data=body, headers=headers)
+            assert response.status == status
+            assert reason in await response.text()
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    assert device.written == ([{"dev.setpoint": "5"}] if status == 204 else [])
+    # Without a token nothing in the request is applied; otherwise the
+    # values to show are, whatever happened to the device's.
+    assert ("note" in monitor) == (token is not None)

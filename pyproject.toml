@@ -27,8 +27,9 @@ dependencies = []
 [project.optional-dependencies]
 serial = ["pyserial>=3.5"]
 zmq = ["pyzmq>=26"]
+ads = ["pyads>=3.5.2"]  # the first release with wheels (no C++ build)
 web = ["aiohttp>=3.10"]
-all = ["sightglass[serial,zmq,web]"]
+all = ["sightglass[serial,zmq,ads,web]"]
 
 [project.scripts]
 sightglass = "sightglass.cli:main"
