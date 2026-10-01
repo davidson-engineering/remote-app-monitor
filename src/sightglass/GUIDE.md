@@ -265,7 +265,9 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
   page: `<script src="/_sightglass/theme.js"></script>` and
   `<link rel="stylesheet" href="/_sightglass/terminal.css">` in `<head>`,
   buttons with `data-theme-switch` / `data-crt-switch`, and CSS under
-  `html[data-theme="terminal"]` using the `--crt-*` colours.
+  `html[data-theme="terminal"]` using the `--crt-*` colours and fonts
+  (`--crt-display-font` for a big clock-like display, at multiples of 11px;
+  `--crt-readout-font` for readings, at multiples of 8px).
 - **In a terminal:** `TerminalDisplay(screen=fn)` draws your own layout:
   `fn(monitor, width, height)` returns the whole frame, reading
   `monitor[id].text` and coloured with `Style(fg=214)` (xterm's 256

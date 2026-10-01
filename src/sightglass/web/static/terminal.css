@@ -1,6 +1,6 @@
 /*
- * The terminal theme's shared parts: the VT323 font, phosphor colors and
- * the CRT effects, after stockwatch's phosphor terminal.
+ * The terminal theme's shared parts: its fonts, phosphor colors and the CRT
+ * effects, after stockwatch's phosphor terminal.
  *
  * A page offering themes loads /_sightglass/theme.js in its <head>, which
  * sets html[data-theme] ("classic" | "terminal") and html[data-crt]
@@ -20,6 +20,19 @@
   font-display: swap;
 }
 
+/* Pixel fonts for numbers, on square grids: sharp only at whole pixels. */
+@font-face {
+  font-family: "Micro 5";
+  src: url("fonts/Micro5-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Silkscreen";
+  src: url("fonts/Silkscreen-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
 html[data-theme="terminal"] {
   color-scheme: dark;
   --crt-bg: #020402;
@@ -36,6 +49,10 @@ html[data-theme="terminal"] {
   --crt-glow: 0 0 1px rgb(92 255 138 / 0.7), 0 0 7px rgb(92 255 138 / 0.28);
   --crt-font: "VT323", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", Menlo,
     Consolas, monospace;
+  /* A big display, like a clock: block digits, sharp at multiples of 11px. */
+  --crt-display-font: "Micro 5", var(--crt-font);
+  /* Instrument readings: square pixel digits, sharp at multiples of 8px. */
+  --crt-readout-font: "Silkscreen", var(--crt-font);
   background: var(--crt-bg);
 }
 

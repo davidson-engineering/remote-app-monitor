@@ -354,7 +354,7 @@ Your own page can offer both:
 ```html
 <head>
   <script src="/_sightglass/theme.js"></script>          <!-- html[data-theme], html[data-crt] -->
-  <link rel="stylesheet" href="/_sightglass/terminal.css"> <!-- VT323, --crt-* colours, CRT effects -->
+  <link rel="stylesheet" href="/_sightglass/terminal.css"> <!-- fonts, --crt-* colours, CRT effects -->
 </head>
 
 <button data-theme-switch>Terminal</button>  <!-- aria-pressed while the terminal theme is on -->
@@ -362,8 +362,13 @@ Your own page can offer both:
 ```
 
 then style it under `html[data-theme="terminal"]` with the `--crt-*` colours
-(`--crt-fg`, `--crt-dim`, `--crt-bright`, `--crt-amber`, ...). `theme.js` sets the
-theme before anything is drawn, so the page never flashes the other one.
+(`--crt-fg`, `--crt-dim`, `--crt-bright`, `--crt-amber`, ...) and fonts:
+`--crt-font` (VT323) for text, and two pixel fonts for numbers,
+`--crt-display-font` (Micro 5) for a big display like a clock and
+`--crt-readout-font` (Silkscreen) for readings. Pixel fonts are sharp only at
+whole pixels: give Micro 5 multiples of 11px and Silkscreen multiples of 8px.
+`theme.js` sets the theme before anything is drawn, so the page never flashes
+the other one.
 
 **`TerminalDisplay(width=60, fps=30, screen=None)`** draws a full-screen view
 in the terminal's alternate screen. Log to a file while it runs; anything
@@ -448,6 +453,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
 MIT. The bundled DSEG fonts are © keshikan, licensed under the SIL Open Font
 License 1.1 (`src/sightglass/web/static/fonts/DSEG-LICENSE.txt`). The launch
 control example's B612 fonts are © The B612 Project Authors, under the same
-license (`src/sightglass/launch/static/fonts/B612-LICENSE.txt`), as is the
-terminal theme's VT323, © The VT323 Project Authors
-(`src/sightglass/web/static/fonts/VT323-LICENSE.txt`).
+license (`src/sightglass/launch/static/fonts/B612-LICENSE.txt`), as are the
+terminal theme's VT323, © The VT323 Project Authors, Micro 5, © The Soft Type
+Project Authors, and Silkscreen, © The Silkscreen Project Authors
+(`VT323-LICENSE.txt`, `Micro5-LICENSE.txt` and `Silkscreen-LICENSE.txt` in
+`src/sightglass/web/static/fonts/`).

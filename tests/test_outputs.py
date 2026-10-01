@@ -196,7 +196,8 @@ async def test_web_serves_its_themes():
         assert script.status == 200
         assert script.content_type == "text/javascript"
         assert 'let theme = "terminal"' in await script.text()  # the default
-        for asset in ["terminal.css", "fonts/VT323-latin.woff2"]:
+        fonts = ["VT323", "Micro5", "Silkscreen"]
+        for asset in ["terminal.css"] + [f"fonts/{f}-latin.woff2" for f in fonts]:
             assert (await client.get(f"/_sightglass/{asset}")).status == 200, asset
 
 

@@ -33,7 +33,7 @@ uv run --all-extras python docs/screenshot.py   # retake the README screenshots 
 | `src/sightglass/decoders.py` | bytes to `{id: value}`: CSV, key/value + logfmt pairs, JSON, binary frames |
 | `src/sightglass/sources/` | serial, ZeroMQ, ADS (Beckhoff PLCs, `ads.py`: sum reads, symbol lookup, guarded writes), stdin, simulated; `_thread.py` runs blocking I/O off the event loop |
 | `src/sightglass/plc.py` | PLC types for sources that read PLCs: Structured Text `TYPE` declarations, TwinCAT 3 memory layout (`pack_mode`), value decode/encode, TOML interface files; standard library only |
-| `src/sightglass/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `sightglass.js` (data-bind client: text, `state`, `width`, `sparkline`, `var`, `data-stale-after`, theme switches), `panel.css` (LCD/LED styles), `terminal.css` (the terminal theme's font, colours and CRT effects; `/_sightglass/theme.js` is generated per dashboard), `auto.html` (generic page), fonts |
+| `src/sightglass/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `sightglass.js` (data-bind client: text, `state`, `width`, `sparkline`, `var`, `data-stale-after`, theme switches), `panel.css` (LCD/LED styles), `terminal.css` (the terminal theme's fonts, colours and CRT effects; `/_sightglass/theme.js` is generated per dashboard), `auto.html` (generic page), fonts |
 | `src/sightglass/terminal.py` | full-screen terminal output |
 | `src/sightglass/client.py` | stdlib-only HTTP client for other processes |
 | `src/sightglass/cli.py`, `demo.py` | the `sightglass` command and `--demo` data |
