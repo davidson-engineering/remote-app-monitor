@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import shutil
 import sys
+import threading
 from collections.abc import Callable
 from typing import TextIO
 
@@ -61,6 +62,7 @@ class TerminalDisplay:
         self.fps = fps
         self.stream = stream
         self.screen = screen
+        self._writing = threading.Lock()  # one frame at a time, then the restore
 
     def render(self, monitor: Monitor) -> str:
         """The full frame as text (without terminal control codes)."""
@@ -81,7 +83,10 @@ class TerminalDisplay:
 
     async def run(self, monitor: Monitor) -> None:
         out = self.stream or sys.stdout
-        out.write(ALT_SCREEN_ON + CURSOR_HIDE)
+        # Writing blocks while the terminal isn't reading (Ctrl+S, a stalled
+        # SSH link, a full pipe), so it happens on a thread: that holds up
+        # this display, never the monitor's event loop and its other outputs.
+        await asyncio.to_thread(self._write, out, ALT_SCREEN_ON + CURSOR_HIDE)
         try:
             version = -1
             while True:
@@ -92,11 +97,15 @@ class TerminalDisplay:
                         version = await asyncio.wait_for(
                             monitor.wait_for_change(version), self.refresh
                         )
-                out.write(CURSOR_HOME + self._frame(monitor))
-                out.flush()
+                frame = CURSOR_HOME + self._frame(monitor)  # read on the loop
+                await asyncio.to_thread(self._write, out, frame)
                 await asyncio.sleep(1 / self.fps)
         finally:
-            out.write(CURSOR_SHOW + ALT_SCREEN_OFF + self.render(monitor) + "\n")
+            self._write(out, CURSOR_SHOW + ALT_SCREEN_OFF + self.render(monitor) + "\n")
+
+    def _write(self, out: TextIO, text: str) -> None:
+        with self._writing:
+            out.write(text)
             out.flush()
 
     def _frame(self, monitor: Monitor) -> str:

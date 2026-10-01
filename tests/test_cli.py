@@ -178,9 +178,11 @@ def test_demo_launch_in_the_terminal(tmp_path):
     size = {"COLUMNS": "120", "LINES": "36", "PYTHONIOENCODING": "utf-8"}
     process, url = run_cli("--demo", "launch", "--terminal", cwd=tmp_path, env=size)
     try:
-        with urllib.request.urlopen(url) as page:
-            assert "Aries II" in page.read().decode()
+        # Nothing reads the terminal meanwhile, so its pipe fills and the
+        # display stalls (as Ctrl+S would); the page must still be served.
         time.sleep(2)
+        with urllib.request.urlopen(url, timeout=5) as page:
+            assert "Aries II" in page.read().decode()
     finally:
         out, err = stop(process)
     assert out.startswith("\x1b[?1049h")  # the terminal's alternate screen

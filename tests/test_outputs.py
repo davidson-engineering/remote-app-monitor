@@ -80,6 +80,33 @@ async def test_terminal_screen_redraws_without_changes():
     assert len(frames) >= 4  # nothing changed, yet it kept drawing
 
 
+async def test_a_stalled_terminal_does_not_stall_the_monitor():
+    """A terminal that stops reading (Ctrl+S, a stuck SSH link, a full pipe)
+    holds up its own display, not the dashboard or the sources."""
+    import threading
+
+    reading = threading.Event()
+
+    class StalledTerminal(io.StringIO):
+        def write(self, text):
+            reading.wait(5)  # blocks, like a write to a terminal that isn't reading
+            return super().write(text)
+
+    monitor = make_monitor()
+    task = asyncio.create_task(TerminalDisplay(stream=StalledTerminal()).run(monitor))
+    try:
+        started = asyncio.get_running_loop().time()
+        await asyncio.sleep(0.2)  # the display is stuck writing by now
+        monitor.set("speed", 9)
+        assert asyncio.get_running_loop().time() - started < 1  # the loop runs on
+        assert monitor["speed"].text == "9"
+    finally:
+        reading.set()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
 async def test_terminal_redraws_on_change_and_restores_screen():
     monitor = make_monitor()
     out = io.StringIO()
