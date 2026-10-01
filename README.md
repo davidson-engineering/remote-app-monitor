@@ -341,11 +341,15 @@ Files in `static_dir` are served under `/static/`.
 #### Themes
 
 The generic page and the launch demo come in two themes: **classic**, and
-**terminal**, a phosphor-green terminal with optional CRT effects (scanlines,
-glow and a power-on flicker, left out for anyone whose system asks for reduced
-motion).
+**terminal**, a phosphor-green terminal whose instruments borrow from an early
+glass cockpit's CRTs: gauges with filled sectors, caution bands and red limits,
+boxed readouts, scales, and a red X over anything whose data has stopped. Its
+CRT effects, on a switch of their own, are still (glow, scanlines, the tube's
+rounded corners and glass) and moving (a power-on that draws each panel
+and types its name, the refresh rolling down the screen, a faint flicker); the
+moving ones are left out for anyone whose system asks for reduced motion.
 
-![The launch demo in the terminal theme: green phosphor text, double-ruled panels, an inverted status bar, checklists and dot leaders](docs/launch-terminal-theme.png)
+![The launch demo in the terminal theme: green phosphor text, double-ruled panels, an inverted status bar, cockpit-style gauges, checklists and dot leaders](docs/launch-terminal-theme.png)
 
 `--theme terminal` or `WebDashboard(theme="terminal")` sets the default; a
 switch on the page lets each viewer change it, and their browser remembers.
@@ -367,8 +371,11 @@ then style it under `html[data-theme="terminal"]` with the `--crt-*` colours
 `--crt-display-font` (Micro 5) for a big display like a clock and
 `--crt-readout-font` (Silkscreen) for readings. Pixel fonts are sharp only at
 whole pixels: give Micro 5 multiples of 11px and Silkscreen multiples of 8px.
-`theme.js` sets the theme before anything is drawn, so the page never flashes
-the other one.
+`terminal.css` draws the CRT effects over any page; for the power-on, give
+your panels its keyframes, `crt-draw` (drawn top to bottom, with `steps()`)
+and `crt-type` (typed in), inside
+`@media (prefers-reduced-motion: no-preference)`. `theme.js` sets the theme
+before anything is drawn, so the page never flashes the other one.
 
 **`TerminalDisplay(width=60, fps=30, screen=None)`** draws a full-screen view
 in the terminal's alternate screen. Log to a file while it runs; anything
