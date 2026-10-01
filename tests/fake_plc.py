@@ -4,6 +4,7 @@ AdsSource talks to it exactly as it would to a PLC."""
 
 from __future__ import annotations
 
+import select
 import struct
 import threading
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 from pyads import constants
 from pyads.testserver import AdsTestServer
 from pyads.testserver.handler import AbstractHandler, AmsPacket, AmsResponseData
+from pyads.testserver.testserver import AdsClientConnection
 
 DATA = 0x4040  # the PLC's variable memory
 SYMBOL_NOT_FOUND = 1808
@@ -205,6 +207,40 @@ class FakePlc(AbstractHandler):
         return INVALID_GROUP, b""
 
 
+class _Connection(AdsClientConnection):
+    """One client's connection, dropped if the client resets it. pyads' own
+    expects a clean close, but a client stopped mid-conversation (the CLI at
+    the end of a test) can reset it instead."""
+
+    def run(self) -> None:
+        try:
+            super().run()
+        except ConnectionError:
+            self.client.close()
+
+
+class _Server(AdsTestServer):
+    """pyads' test server, with its connections made :class:`_Connection`."""
+
+    def run(self) -> None:
+        self._run = True
+        self.server.listen(5)
+        while self._run:
+            ready, _, _ = select.select([self.server], [], [], 0.1)
+            if not ready:
+                continue
+            try:
+                client, address = self.server.accept()
+            except OSError:
+                continue
+            connection = _Connection(
+                handler=self.handler, client=client, address=address, server=self
+            )
+            connection.daemon = True
+            connection.start()
+            self.clients.append(connection)
+
+
 class FakePlcServer:
     """Serves a :class:`FakePlc` on 127.0.0.1:48898, where pyads connects."""
 
@@ -213,8 +249,13 @@ class FakePlcServer:
         self._server: AdsTestServer | None = None
 
     def start(self) -> None:
-        self._server = AdsTestServer(handler=self.plc, logging=False)
+        self._server = _Server(handler=self.plc, logging=False)
         self._server.start()
+
+    @property
+    def connections(self) -> list[threading.Thread]:
+        """The threads serving its clients, one per connection."""
+        return [] if self._server is None else list(self._server.clients)
 
     def stop(self) -> None:
         if self._server is not None:

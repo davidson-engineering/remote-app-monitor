@@ -4,6 +4,7 @@ and TCP on 127.0.0.1:48898), through the monitor, HTTP and the CLI."""
 import asyncio
 import json
 import logging
+import socket
 import struct
 import subprocess
 import sys
@@ -367,6 +368,20 @@ def test_cli_reads_an_interface_file(fake_plc, tmp_path):
     finally:
         _, err = stop(process)
     assert "Traceback" not in err
+
+
+def test_fake_plc_drops_a_client_that_resets_its_connection(fake_plc):
+    """A client stopped mid-conversation can reset its connection rather than
+    close it (the CLI, stopped at the end of a test). The fake PLC drops it,
+    as a PLC would, instead of failing the test with ConnectionResetError."""
+    client = socket.create_connection(("127.0.0.1", 48898))
+    client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    time.sleep(0.2)  # accepted
+    client.close()  # with no linger: a reset
+    deadline = time.monotonic() + 5
+    while any(thread.is_alive() for thread in fake_plc.server.connections):
+        assert time.monotonic() < deadline, "the connection was never dropped"
+        time.sleep(0.01)
 
 
 @pytest.mark.parametrize(
