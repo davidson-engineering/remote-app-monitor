@@ -5,6 +5,7 @@ e.g. ``--at 60`` to start a minute after liftoff.
 """
 
 import argparse
+import logging
 import sys
 
 from . import run
@@ -23,8 +24,19 @@ parser.add_argument(
     help="start this long after liftoff (default: at the start of the countdown)",
 )
 parser.add_argument("--open", action="store_true", help="open it in a browser")
+parser.add_argument(
+    "--terminal", action="store_true", help="draw it here too (logs: sightglass.log)"
+)
 args = parser.parse_args()
+if args.terminal:  # anything logged to the terminal would be drawn over
+    logging.basicConfig(filename="sightglass.log", level=logging.WARNING)
 try:
-    run(host=args.host, port=args.port, at=args.at, open_browser=args.open)
+    run(
+        host=args.host,
+        port=args.port,
+        at=args.at,
+        open_browser=args.open,
+        terminal=args.terminal,
+    )
 except OSError as error:  # e.g. the port is taken: one line, not a traceback
     sys.exit(f"python -m sightglass.launch: error: {error.strerror or error}")

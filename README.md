@@ -18,6 +18,11 @@ source, another process using `Client`, and plain HTTP posts. Its gauges,
 tanks and lamps are drawn by CSS from the values; the page has no JavaScript
 of its own. The source is in [src/sightglass/launch/](src/sightglass/launch/).
 
+Add `--terminal` and the same launch is drawn in the terminal as well, laid
+out by a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
+
+![The launch control demo drawn in a terminal: a segment countdown clock, charts, gauges, engine lamps, tanks, the poll, weather and the event log](docs/launch-terminal.png)
+
 - **One line to start.** `start()` serves a dashboard in the background and
   prints its address; `monitor.set("progress", 5)` works from any thread, and
   elements appear the first time you use them.
@@ -148,7 +153,8 @@ ids `X.<id>`, so one list can serve several axes.
 
 `TextFormat(width, precision, force_sign, padding)` formats numbers:
 `TextFormat(width=10, precision=3, force_sign=True, padding="0")` turns `27.31`
-into `+00027.310`. `Style(fg, bg, bold, dim)` adds colour in the terminal.
+into `+00027.310`. `Style(fg, bg, bold, dim)` adds colour in the terminal:
+a colour name, or one of xterm's 256 colour numbers (`Style(fg=214)` is amber).
 
 For a fixed, curated dashboard use `Monitor(strict=True)`: unknown ids are
 then rejected and logged (once per id) instead of creating elements.
@@ -248,9 +254,15 @@ Object values are flattened, so a `RangeBar` binds as `<id>.text` and
 (`.lcd`, `.lcd-field`) and LED (`.led`, `.led-red`, `.led-amber`) styles.
 Files in `static_dir` are served under `/static/`.
 
-**`TerminalDisplay(width=60, fps=30)`** draws a full-screen view in the
-terminal's alternate screen. Log to a file while it runs; anything printed to
-the terminal gets drawn over.
+**`TerminalDisplay(width=60, fps=30, screen=None)`** draws a full-screen view
+in the terminal's alternate screen. Log to a file while it runs; anything
+printed to the terminal gets drawn over. By default it lists every element;
+for a layout of your own, the terminal's counterpart of a custom page, pass
+`screen`: a function of `(monitor, width, height)` that returns the whole
+frame for a terminal that size, reading values from the elements
+(`monitor["rate"].text`) and colouring them with `Style`. A screen is redrawn
+at least once a second, so it can show how old values are
+(`monitor.ages()`). The launch demo's `screen.py` is a full example.
 
 ### Network access and security
 

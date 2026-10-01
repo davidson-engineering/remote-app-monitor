@@ -66,3 +66,72 @@ def test_the_page_binds_only_values_the_demo_sends():
     sent = set(flatten(build_monitor().snapshot()))
     assert bound
     assert bound <= sent, bound - sent
+
+
+# -- in a terminal ----------------------------------------------------------------
+
+
+@pytest.fixture
+def flown(monkeypatch):
+    """A monitor that has seen the launch up to T+52, as the demo would."""
+    from sightglass.launch import ground
+
+    clock = {"now": 0.0, "mission": -30.0}
+    monkeypatch.setattr("sightglass.elements.monotonic", lambda: clock["now"])
+    monkeypatch.setattr(flight, "mission_time", lambda started: clock["mission"])
+    monkeypatch.setattr(flight, "log_start", lambda started: -31)
+    monitor, rocket, before = build_monitor(), flight.Vehicle(0), -31.0
+    for tenth in range(-300, 521):
+        t = tenth / 10
+        clock["now"], clock["mission"] = t + 30, t
+        monitor.update(rocket(0), ground.report(t))
+        for at, message in ground.MESSAGES:
+            if before < at <= t:
+                monitor.set("log", f"{stamp(at)}  {message}")
+        if tenth % 10 == 0:
+            weather = {"wind": 11 + tenth % 7, "gust": 15, "direction": 240}
+            monitor.update({f"weather.{k}": v for k, v in weather.items()})
+        before = t
+    return monitor
+
+
+@pytest.mark.parametrize(
+    "size", [(160, 50), (120, 36), (101, 34), (100, 40), (80, 24), (64, 20)]
+)
+def test_terminal_screen_fits_the_terminal(flown, size):
+    from sightglass.launch.screen import plain, screen, width_of
+
+    width, height = size
+    frame = screen(flown, width, height, "http://127.0.0.1:8080/")
+    lines = frame.split("\n")
+    assert len(lines) <= height
+    assert max(map(width_of, lines)) <= width - 1  # the last column stays free
+    text = plain(frame)
+    for shown in ["Aries II", "Flight is nominal", "Max-Q, 37.6 kPa", "14.3", "546"]:
+        assert shown in text, (shown, size)
+
+
+def test_terminal_screen_is_polite_when_too_small(flown):
+    from sightglass.launch.screen import plain, screen
+
+    assert "at least 60 x 20" in plain(screen(flown, 50, 30))
+
+
+@pytest.mark.parametrize("size", [(120, 36), (80, 24)])
+def test_terminal_screen_says_which_feed_went_quiet(flown, monkeypatch, size):
+    from sightglass.launch.screen import plain, screen
+
+    ages = {**flown.ages(), "clock.time": 60.0, "weather.wind": None}
+    monkeypatch.setattr(flown, "ages", lambda: ages)
+    text = plain(screen(flown, *size))
+    assert "No data from ground" in text  # beside the clock it may wrap
+    assert "Flight is nominal" not in text  # the ground's status: replaced
+    assert "14.3" in text  # the vehicle is fine
+
+
+def test_segment_clock():
+    from sightglass.launch.screen import plain, segment_clock
+
+    rows = [plain(row) for row in segment_clock("12:34:56")]
+    assert len(rows) == 5
+    assert {len(row) for row in rows} == {6 * 8 + 2 * 3}

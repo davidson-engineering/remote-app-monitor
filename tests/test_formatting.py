@@ -57,6 +57,9 @@ def test_text_format_rejects_multi_character_padding():
         (Style(bg="red", dim=True), "\x1b[2;41mX\x1b[0m"),
         (Style(fg="Yellow", bg="blue", bold=True, dim=True), "\x1b[1;2;33;44mX\x1b[0m"),
         (Style(), "X"),
+        # xterm's 256 colors, which every modern terminal draws.
+        (Style(fg=214, bg=235), "\x1b[38;5;214;48;5;235mX\x1b[0m"),
+        (Style(fg=0, bold=True), "\x1b[1;38;5;0mX\x1b[0m"),
     ],
 )
 def test_style(style, expected):
@@ -66,6 +69,8 @@ def test_style(style, expected):
 def test_style_rejects_unknown_colors():
     with pytest.raises(ValueError, match="unknown color 'teal'"):
         Style(fg="teal")
+    with pytest.raises(ValueError, match="0 to 255"):
+        Style(bg=256)
 
 
 def test_visible_len_ignores_ansi_codes():
