@@ -35,8 +35,9 @@ says it has gone quiet.
 uvx --from "sightglass[web] @ git+https://github.com/davidson-engineering/sightglass" sightglass --demo launch --open
 ```
 
-The launch repeats every five minutes or so. It ships with sightglass, so
-once installed, `sightglass --demo launch --open` is enough. Its source is in
+The launch repeats every five minutes or so; `--theme terminal` shows it as a
+phosphor terminal, and the switch on the page changes it. It ships with
+sightglass, so once installed, `sightglass --demo launch --open` is enough. Its source is in
 [src/sightglass/launch/](../src/sightglass/launch/): copy the folder as a
 starting point for a page of your own.
 

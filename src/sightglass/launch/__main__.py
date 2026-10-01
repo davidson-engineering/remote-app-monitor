@@ -24,6 +24,7 @@ parser.add_argument(
     help="start this long after liftoff (default: at the start of the countdown)",
 )
 parser.add_argument("--open", action="store_true", help="open it in a browser")
+parser.add_argument("--theme", choices=["classic", "terminal"], default="classic")
 parser.add_argument(
     "--terminal", action="store_true", help="draw it here too (logs: sightglass.log)"
 )
@@ -37,6 +38,7 @@ try:
         at=args.at,
         open_browser=args.open,
         terminal=args.terminal,
+        theme=args.theme,
     )
 except OSError as error:  # e.g. the port is taken: one line, not a traceback
     sys.exit(f"python -m sightglass.launch: error: {error.strerror or error}")

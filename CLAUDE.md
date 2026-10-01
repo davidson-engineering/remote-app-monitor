@@ -32,14 +32,14 @@ uv run --all-extras python docs/screenshot.py   # retake the README screenshots 
 | `src/sightglass/elements.py` | element types; each has `update`, `to_json` (browser) and `render(width)` (terminal) |
 | `src/sightglass/decoders.py` | bytes to `{id: value}`: CSV, key/value + logfmt pairs, JSON, binary frames |
 | `src/sightglass/sources/` | serial, ZeroMQ, stdin, simulated; `_thread.py` runs blocking I/O off the event loop |
-| `src/sightglass/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `sightglass.js` (data-bind client: text, `state`, `width`, `sparkline`, `var`, `data-stale-after`), `panel.css` (LCD/LED styles), `auto.html` (generic page), fonts |
+| `src/sightglass/web/` | aiohttp server (`/`, `/ws`, `POST /update`, `GET /values`) and `static/`: `sightglass.js` (data-bind client: text, `state`, `width`, `sparkline`, `var`, `data-stale-after`, theme switches), `panel.css` (LCD/LED styles), `terminal.css` (the terminal theme's font, colours and CRT effects; `/_sightglass/theme.js` is generated per dashboard), `auto.html` (generic page), fonts |
 | `src/sightglass/terminal.py` | full-screen terminal output |
 | `src/sightglass/client.py` | stdlib-only HTTP client for other processes |
 | `src/sightglass/cli.py`, `demo.py` | the `sightglass` command and `--demo` data |
 | `src/sightglass/launch/` | `--demo launch`, the showcase: `page.html` + `static/` (plain HTML/CSS), `screen.py` (its terminal screen, `--terminal`), `vehicle.py` (flight model, in-process source), `ground.py` and `weather.py` (feeder processes), `mission.py` (shared clock); loaded only by that demo |
 | `src/sightglass/GUIDE.md` | the agent guide (imported above, printed by `--guide`) |
 | `examples/` | the gallery (`examples/README.md`): robot dashboard (segment displays, serial), numbered single-file examples, terminal, ZeroMQ publisher, Docker, `fake_device.py` (virtual serial port) |
-| `docs/` | README images; `screenshot.py` retakes the launch demo's two (browser and terminal) |
+| `docs/` | README images; `screenshot.py` retakes the launch demo's three (page in both themes, terminal screen) |
 
 ## Invariants
 
@@ -83,8 +83,9 @@ uv run --all-extras python docs/screenshot.py   # retake the README screenshots 
 - Run the tests and ruff.
 - UI changes: look at the generic page (`sightglass --demo`), the launch demo
   (`sightglass --demo launch`) and the robot example in a browser, at desktop
-  and 390 px widths; its terminal screen (`--terminal`) at 120 x 36 and
-  80 x 24. Changes to either: retake the README screenshots.
+  and 390 px widths, the first two in both themes (`--theme terminal`); the
+  launch's terminal screen (`--terminal`) at 120 x 36 and 80 x 24. Changes to
+  any of these: retake the README screenshots.
 - API or docs changes: run every snippet in `README.md` and `GUIDE.md` as
   written, in a clean virtualenv; they are user-facing contracts.
 - Releases: see `CONTRIBUTING.md` (tag `v<__version__>`, trusted publishing).

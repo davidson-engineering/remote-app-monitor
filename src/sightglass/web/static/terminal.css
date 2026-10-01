@@ -1,0 +1,97 @@
+/*
+ * The terminal theme's shared parts: the VT323 font, phosphor colors and
+ * the CRT effects, after stockwatch's phosphor terminal.
+ *
+ * A page offering themes loads /_sightglass/theme.js in its <head>, which
+ * sets html[data-theme] ("classic" | "terminal") and html[data-crt]
+ * ("on" | "off") before anything is drawn, then styles its own parts under
+ * html[data-theme="terminal"] with the tokens below. Buttons marked
+ * data-theme-switch and data-crt-switch change them (sightglass.js).
+ *
+ * Dark only. The text tokens clear 4.5:1 on --crt-surface. The CRT effects
+ * (glow, scanlines, a tube vignette, a power-on flicker) are cosmetic: off
+ * with the CRT switch, for people who ask for reduced motion, and in
+ * forced-colors mode.
+ */
+
+@font-face {
+  font-family: "VT323";
+  src: url("fonts/VT323-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
+html[data-theme="terminal"] {
+  color-scheme: dark;
+  --crt-bg: #020402;
+  --crt-surface: #06100a;
+  --crt-raised: #0b1c11;
+  --crt-rule: #1d5c33;
+  --crt-grid: #123a20;
+  --crt-fg: #5cff8a;
+  --crt-bright: #c2ffd2;
+  --crt-dim: #3dbd66;
+  --crt-muted: #2f9150;
+  --crt-amber: #ffb22e;
+  --crt-red: #ff6159;
+  --crt-glow: 0 0 1px rgb(92 255 138 / 0.7), 0 0 7px rgb(92 255 138 / 0.28);
+  --crt-font: "VT323", ui-monospace, "Cascadia Mono", "DejaVu Sans Mono", Menlo,
+    Consolas, monospace;
+  background: var(--crt-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  html[data-theme="terminal"][data-crt="on"] body {
+    text-shadow: var(--crt-glow);
+  }
+
+  html[data-theme="terminal"][data-crt="on"] body::before,
+  html[data-theme="terminal"][data-crt="on"] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  /* Scanlines. */
+  html[data-theme="terminal"][data-crt="on"] body::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0 2px,
+      rgb(0 0 0 / 0.24) 2px 3px
+    );
+  }
+
+  /* The tube's darker edges. */
+  html[data-theme="terminal"][data-crt="on"] body::after {
+    background: radial-gradient(ellipse at center, rgb(0 0 0 / 0) 62%, rgb(0 0 0 / 0.5));
+  }
+
+  html[data-theme="terminal"][data-crt="on"] main {
+    animation: crt-power-on 0.45s ease-out both;
+  }
+}
+
+@keyframes crt-power-on {
+  from {
+    opacity: 0;
+    transform: scaleY(0.02);
+    filter: brightness(3);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scaleY(1);
+    filter: brightness(1.6);
+  }
+
+  to {
+    filter: brightness(1);
+  }
+}
+
+@keyframes crt-blink {
+  50% {
+    opacity: 0;
+  }
+}

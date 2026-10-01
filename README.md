@@ -18,8 +18,9 @@ source, another process using `Client`, and plain HTTP posts. Its gauges,
 tanks and lamps are drawn by CSS from the values; the page has no JavaScript
 of its own. The source is in [src/sightglass/launch/](src/sightglass/launch/).
 
-Add `--terminal` and the same launch is drawn in the terminal as well, laid
-out by a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
+Add `--theme terminal` for a phosphor-terminal look ([themes](#themes)), or
+`--terminal` and the same launch is drawn in the terminal as well, laid out by
+a screen function of its own ([screen.py](src/sightglass/launch/screen.py)):
 
 ![The launch control demo drawn in a terminal: a segment countdown clock, charts, gauges, engine lamps, tanks, the poll, weather and the event log](docs/launch-terminal.png)
 
@@ -217,10 +218,11 @@ Corrupt frames are skipped and decoding resumes at the next `0xAA`.
 
 ## Outputs
 
-**`WebDashboard(page=None, static_dir=None, host="127.0.0.1", port=8080, title="Monitor", token=None, stale_after=None)`**
+**`WebDashboard(page=None, static_dir=None, host="127.0.0.1", port=8080, title="Monitor", theme="classic", token=None, stale_after=None)`**
 serves `page` (or the generic page), streams values over a WebSocket, accepts
 `POST /update` and returns the current values as JSON from `GET /values`. `stale_after=2` dims values when no data has arrived
-for 2 seconds, for sources that should update continuously. Your own page
+for 2 seconds, for sources that should update continuously. `theme` sets the
+pages' look until a viewer switches ([themes](#themes)). Your own page
 loads `/_sightglass/sightglass.js` and marks up elements:
 
 ```html
@@ -253,6 +255,33 @@ Object values are flattened, so a `RangeBar` binds as `<id>.text` and
 `MachineState` as `<id>.<state>`. `panel.css` provides the segment display
 (`.lcd`, `.lcd-field`) and LED (`.led`, `.led-red`, `.led-amber`) styles.
 Files in `static_dir` are served under `/static/`.
+
+#### Themes
+
+The generic page and the launch demo come in two themes: **classic**, and
+**terminal**, a phosphor-green terminal with optional CRT effects (scanlines,
+glow and a power-on flicker, left out for anyone whose system asks for reduced
+motion).
+
+![The launch demo in the terminal theme: green phosphor text, double-ruled panels, an inverted status bar, checklists and dot leaders](docs/launch-terminal-theme.png)
+
+`--theme terminal` or `WebDashboard(theme="terminal")` sets the default; a
+switch on the page lets each viewer change it, and their browser remembers.
+Your own page can offer both:
+
+```html
+<head>
+  <script src="/_sightglass/theme.js"></script>          <!-- html[data-theme], html[data-crt] -->
+  <link rel="stylesheet" href="/_sightglass/terminal.css"> <!-- VT323, --crt-* colours, CRT effects -->
+</head>
+
+<button data-theme-switch>Terminal</button>  <!-- aria-pressed while the terminal theme is on -->
+<button data-crt-switch>CRT</button>
+```
+
+then style it under `html[data-theme="terminal"]` with the `--crt-*` colours
+(`--crt-fg`, `--crt-dim`, `--crt-bright`, `--crt-amber`, ...). `theme.js` sets the
+theme before anything is drawn, so the page never flashes the other one.
 
 **`TerminalDisplay(width=60, fps=30, screen=None)`** draws a full-screen view
 in the terminal's alternate screen. Log to a file while it runs; anything
@@ -328,4 +357,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and releases.
 MIT. The bundled DSEG fonts are © keshikan, licensed under the SIL Open Font
 License 1.1 (`src/sightglass/web/static/fonts/DSEG-LICENSE.txt`). The launch
 control example's B612 fonts are © The B612 Project Authors, under the same
-license (`src/sightglass/launch/static/fonts/B612-LICENSE.txt`).
+license (`src/sightglass/launch/static/fonts/B612-LICENSE.txt`), as is the
+terminal theme's VT323, © The VT323 Project Authors
+(`src/sightglass/web/static/fonts/VT323-LICENSE.txt`).

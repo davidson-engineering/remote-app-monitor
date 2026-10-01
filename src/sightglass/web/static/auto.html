@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitor</title>
+  <script src="/_sightglass/theme.js"></script>
   <link rel="stylesheet" href="/_sightglass/panel.css">
+  <link rel="stylesheet" href="/_sightglass/terminal.css">
   <style>
     :root {
       color-scheme: light dark;
@@ -96,13 +98,82 @@
     @media (max-width: 520px) {
       .row { grid-template-columns: 1fr; gap: 4px; }  /* label above value */
     }
+
+    .tools { display: flex; align-items: center; gap: 12px; }
+    .switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: none;
+              color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+    .switch:hover { color: var(--text); }
+    :focus-visible { outline: 2px solid var(--bar); outline-offset: 2px; }
+    html:not([data-theme="terminal"]) [data-crt-switch] { display: none; }  /* nothing to switch */
+
+    /* -- the terminal theme: tokens and CRT effects in /_sightglass/terminal.css -- */
+
+    html[data-theme="terminal"] {
+      --bg: var(--crt-bg); --card: var(--crt-surface); --text: var(--crt-fg); --muted: var(--crt-dim);
+      --line: var(--crt-rule); --bar: var(--crt-fg); --led-off: var(--crt-grid);
+      --led-on: var(--crt-fg); --led-on-glow: rgb(92 255 138 / 0.5);
+    }
+    html[data-theme="terminal"] body { font: 20px/1.25 var(--crt-font); letter-spacing: 0.02em; }
+    html[data-theme="terminal"] main { max-width: 760px; }
+
+    /* An inverted status bar. */
+    html[data-theme="terminal"] header { padding: 4px 12px; background: var(--crt-fg); color: var(--crt-bg); text-shadow: none; }
+    html[data-theme="terminal"] h1 { font-size: 26px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; }
+    html[data-theme="terminal"] .status { color: var(--crt-bg); font-size: 20px; text-transform: uppercase; }
+    html[data-theme="terminal"] .status .led { border-radius: 0; background: none; outline: 1px solid var(--crt-bg); }
+    html[data-theme="terminal"][data-connection="open"] .status .led { background: var(--crt-bg); }
+    html[data-theme="terminal"] .switch { border: 1px solid var(--crt-bg); border-radius: 0; color: var(--crt-bg);
+                                          font-size: 20px; text-transform: uppercase; }
+    html[data-theme="terminal"] .switch::before { content: "["; }
+    html[data-theme="terminal"] .switch::after { content: "]"; }
+    html[data-theme="terminal"] .switch[aria-pressed="true"] { background: var(--crt-bg); color: var(--crt-fg); }
+    html[data-theme="terminal"] :focus-visible { outline-color: var(--crt-bright); }
+
+    /* Double-ruled panels, their names cut into the top edge. */
+    html[data-theme="terminal"] #dashboard { gap: 26px; margin-top: 14px; }
+    html[data-theme="terminal"] section { position: relative; border: 3px double var(--crt-rule); border-radius: 0; }
+    html[data-theme="terminal"] section:has(> h2) { padding-top: 10px; }
+    html[data-theme="terminal"] h2 { position: absolute; top: -0.7em; left: 12px; max-width: calc(100% - 24px);
+      padding: 0 8px; border: 0; background: var(--crt-bg); color: var(--crt-bright); font-size: 22px;
+      font-weight: 400; letter-spacing: 0.06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    html[data-theme="terminal"] h2::before { content: "> "; color: var(--crt-fg); }
+    html[data-theme="terminal"] .row + .row { border-top: 0; }
+
+    /* Dot leaders from each name to its value, as a 1985 menu screen would. */
+    html[data-theme="terminal"] .label { display: flex; align-items: baseline; gap: 6px; text-transform: uppercase; }
+    html[data-theme="terminal"] .label::after { content: ""; flex: 1; min-width: 12px;
+      border-bottom: 2px dotted var(--crt-muted); transform: translateY(-4px); }
+
+    /* Bars in blocks; square lamps. */
+    html[data-theme="terminal"] .track { height: 12px; border-radius: 0;
+      background: repeating-linear-gradient(90deg, var(--crt-grid) 0 7px, transparent 7px 9px); }
+    html[data-theme="terminal"] .fill {
+      background: repeating-linear-gradient(90deg, var(--crt-fg) 0 7px, transparent 7px 9px); }
+    html[data-theme="terminal"] .range .fill { background: none; border-right-width: 4px; }
+    html[data-theme="terminal"] .chart { height: 28px; }
+    html[data-theme="terminal"] .led { border-radius: 0; }
+    html[data-theme="terminal"] th { color: var(--crt-bright); font-weight: 400; text-transform: uppercase; }
+    html[data-theme="terminal"] th, html[data-theme="terminal"] td { border-bottom-color: var(--crt-grid); }
+    html[data-theme="terminal"] pre { font: 20px/1.25 var(--crt-font); }
+
+    @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+      html[data-theme="terminal"][data-crt="on"] .chart svg { filter: drop-shadow(0 0 3px rgb(92 255 138 / 0.6)); }
+    }
+
+    @media (max-width: 520px) {
+      html[data-theme="terminal"] .label::after { display: none; }
+    }
   </style>
 </head>
 <body>
   <main>
     <header>
       <h1 id="title">Monitor</h1>
-      <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
+      <div class="tools">
+        <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
+        <button type="button" class="switch" data-theme-switch>Terminal</button>
+        <button type="button" class="switch" data-crt-switch>CRT</button>
+      </div>
     </header>
     <div id="dashboard"></div>
     <template id="empty">

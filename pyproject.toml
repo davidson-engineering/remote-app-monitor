@@ -43,6 +43,7 @@ dev = [
   "pytest-cov>=5",
   "playwright>=1.50",
   "ruff>=0.6",
+  "pillow>=11",
 ]
 
 [tool.setuptools.dynamic]

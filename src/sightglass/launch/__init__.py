@@ -108,6 +108,7 @@ def run(
     at: float = -COUNTDOWN,
     open_browser: bool = False,
     terminal: bool = False,
+    theme: str = "classic",
 ) -> None:
     """Serve the launch until Ctrl+C, starting ``at`` seconds from liftoff;
     with ``terminal``, draw it in this terminal as well."""
@@ -119,6 +120,7 @@ def run(
         static_dir=HERE / "static",
         host=host,
         port=port,
+        theme=theme,
         open_browser=open_browser,
     )
     outputs: list = [web]

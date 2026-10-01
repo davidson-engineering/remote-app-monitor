@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aries II launch control</title>
+  <script src="/_sightglass/theme.js"></script>
   <link rel="stylesheet" href="/_sightglass/panel.css">
+  <link rel="stylesheet" href="/_sightglass/terminal.css">
   <link rel="stylesheet" href="/static/page.css">
 </head>
 <!--
@@ -12,7 +14,10 @@
   element up to date, and page.css draws the gauges, tanks and
   lamps from those values. data-mode="var" hands a number to CSS as --value;
   data-stale-after marks a value that has stopped arriving, and each
-  [data-feed] area then says which program has gone quiet.
+  [data-feed] area then says which program has gone quiet. Two themes,
+  classic and terminal, are CSS only; theme.js applies the viewer's choice
+  before anything is drawn, and the data-theme-switch and data-crt-switch
+  buttons change it.
 -->
 <body>
   <main class="console">
@@ -23,6 +28,10 @@
         <li><span class="led" data-bind="clock.time" data-mode="state" data-stale-after="2"></span>Ground</li>
         <li><span class="led" data-bind="weather.wind.text" data-mode="state" data-stale-after="3"></span>Weather</li>
         <li class="link"><span class="led"></span><span class="link-state"></span></li>
+        <li class="switches">
+          <button type="button" class="switch" data-theme-switch>Terminal</button>
+          <button type="button" class="switch" data-crt-switch>CRT</button>
+        </li>
       </ul>
     </header>
 

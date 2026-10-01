@@ -17,6 +17,12 @@
 // unchanged still counts as arriving. While the page is disconnected it
 // can't tell, so the attribute stays as it was until it reconnects.
 //
+// Themes: a page that loads /_sightglass/theme.js in its <head> gets
+// html[data-theme] ("classic" | "terminal") and html[data-crt] ("on" | "off").
+// Clicking an element marked data-theme-switch toggles the theme, and
+// data-crt-switch the terminal theme's CRT effects; the choice is remembered in
+// this browser, and aria-pressed shows each switch's state.
+//
 // Object values are flattened, so {"machine": {"estop": true}} binds as
 // "machine.estop". State is exposed on <html>:
 //   data-connection  "connecting" | "open" | "closed"
@@ -192,7 +198,36 @@
     };
   }
 
+  function remember(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {} // storage blocked: just for this page, then
+  }
+
+  function showSwitches() {
+    for (const el of document.querySelectorAll("[data-theme-switch]")) {
+      el.setAttribute("aria-pressed", String(root.dataset.theme === "terminal"));
+    }
+    for (const el of document.querySelectorAll("[data-crt-switch]")) {
+      el.setAttribute("aria-pressed", String(root.dataset.crt !== "off"));
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-theme-switch]")) {
+      root.dataset.theme = root.dataset.theme === "terminal" ? "classic" : "terminal";
+      remember("sightglass.theme", root.dataset.theme);
+    } else if (event.target.closest("[data-crt-switch]")) {
+      root.dataset.crt = root.dataset.crt === "off" ? "on" : "off";
+      remember("sightglass.crt", root.dataset.crt);
+    } else {
+      return;
+    }
+    showSwitches();
+  });
+
   root.dataset.connection = "connecting";
+  showSwitches();
   setInterval(tick, 1000);
   connect(250);
 })();
