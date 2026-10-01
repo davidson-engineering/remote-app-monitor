@@ -77,12 +77,14 @@ def test_bad_combinations_are_explained(argv, message, capsys):
     assert message in capsys.readouterr().err
 
 
-def run_cli(*argv, stdin=subprocess.DEVNULL, cwd=None, env=None):
+def run_cli(
+    *argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, cwd=None, env=None
+):
     """Start the command; return it and the dashboard URL it prints."""
     process = subprocess.Popen(
         [sys.executable, "-m", "sightglass", "--port", "0", *argv],
         stdin=stdin,
-        stdout=subprocess.PIPE,
+        stdout=stdout,
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
@@ -174,36 +176,55 @@ def test_demo_launch():
     assert "Ground systems (process" in err
 
 
+TERMINAL = {"COLUMNS": "120", "LINES": "36", "PYTHONIOENCODING": "utf-8"}
+
+
 def test_demo_launch_in_the_terminal(tmp_path):
-    """--terminal draws the launch screen here, and still serves the page."""
-    size = {"COLUMNS": "120", "LINES": "36", "PYTHONIOENCODING": "utf-8"}
-    process, url = run_cli("--demo", "launch", "--terminal", cwd=tmp_path, env=size)
-    try:
-        # Nothing reads the terminal meanwhile, so its pipe fills and the
-        # display stalls (as Ctrl+S would); the page must still be served.
-        time.sleep(2)
-        with urllib.request.urlopen(url, timeout=5) as page:
-            assert "Aries II" in page.read().decode()
-        # Stop it only once its feeder processes report: killed while they
-        # are still starting, Windows children fail to attach to it.
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline:
-            with urllib.request.urlopen(f"{url}values", timeout=5) as response:
-                values = json.load(response)
-            if values["clock.time"] and values["weather.wind"]["values"]:
-                break
-            time.sleep(0.2)
-    finally:
-        out, err = stop(process)
+    """--terminal draws the launch screen, and all three feeds report."""
+    with open(tmp_path / "screen", "w", encoding="utf-8") as screen:  # keeps up
+        process, url = run_cli(
+            "--demo", "launch", "--terminal", stdout=screen, cwd=tmp_path, env=TERMINAL
+        )
+        try:
+            # Stop it once its feeder processes report: killed while they are
+            # still starting, Windows children fail to attach to it.
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                with urllib.request.urlopen(f"{url}values", timeout=5) as response:
+                    values = json.load(response)
+                if values["clock.time"] and values["weather.wind"]["values"]:
+                    break
+                time.sleep(0.2)
+        finally:
+            _, err = stop(process)
     log = tmp_path / "sightglass.log"
     logged = log.read_text() if log.exists() else "(no log)"
     report = f"values: {values}\nstderr: {err}\nlog: {logged}"
     assert values["clock.time"], report  # ground systems, from another process
     assert values["weather.wind"]["values"], report  # the weather mast, likewise
+    out = (tmp_path / "screen").read_text(encoding="utf-8", errors="replace")
     assert out.startswith("\x1b[?1049h")  # the terminal's alternate screen
     for shown in ["Launch control", "Flight dynamics", "Go/no-go poll", "Events"]:
         assert shown in out
     assert "Traceback" not in err
+
+
+def test_a_stalled_terminal_still_serves_the_page(tmp_path):
+    """Nothing reads this terminal, so its pipe fills and the display stalls,
+    as Ctrl+S would; the web page and the values must still be served."""
+    process, url = run_cli("--demo", "launch", "--terminal", cwd=tmp_path, env=TERMINAL)
+    try:
+        time.sleep(2)  # long enough to fill any pipe
+        with urllib.request.urlopen(url, timeout=5) as page:
+            assert "Aries II" in page.read().decode()
+        frames = []
+        for _ in range(2):
+            with urllib.request.urlopen(f"{url}values", timeout=5) as response:
+                frames.append(int(json.load(response)["frame"]))
+            time.sleep(0.5)
+        assert frames[1] > frames[0]  # the vehicle's telemetry keeps arriving
+    finally:
+        stop(process)
 
 
 def test_version():
