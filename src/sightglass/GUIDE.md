@@ -271,6 +271,9 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
   `--crt-readout-font` for readings, at multiples of 8px). The CRT effects
   cover any such page; animate your panels with its `crt-draw` and
   `crt-type` keyframes, only under `prefers-reduced-motion: no-preference`.
+- **Checking the ids:** press `` ` `` on the page for the signals panel: every
+  id the dashboard receives, its value as sent and its last minute. A
+  `data-bind` that stays empty names an id that isn't in that list.
 - **In a terminal:** `TerminalDisplay(screen=fn)` draws your own layout:
   `fn(monitor, width, height)` returns the whole frame, reading
   `monitor[id].text` and coloured with `Style(fg=214)` (xterm's 256
@@ -313,7 +316,8 @@ Serve it with `WebDashboard("page.html", static_dir="static")` (files in
 4. Warnings (bad values, unknown ids with `strict=True`, a missing serial
    device, PLC variables left out) go to stderr; read them.
 5. Look at the page in a browser if you can: values change live and the
-   status says "Live".
+   status says "Live". Press `` ` `` for the signals panel: every id received,
+   as sent, with a chart of its last minute.
 
 ## 8. Gotchas
 

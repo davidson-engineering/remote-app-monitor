@@ -17,6 +17,10 @@ the current values from ``/values``::
     curl -d '{"temperature": 21.5}' http://127.0.0.1:8080/update
     curl -d 'progress=5 status=running' http://127.0.0.1:8080/update
     curl http://127.0.0.1:8080/values
+
+Every page that loads ``sightglass.js`` also has a signals panel (the ` key):
+every value sent, by id, with a chart of its last minute, streamed over a
+second WebSocket (``/ws/signals``) only while the panel is open.
 """
 
 from __future__ import annotations
@@ -30,13 +34,16 @@ import logging
 import os
 import sys
 import webbrowser
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from aiohttp import WSCloseCode, WSMsgType, web
 
 from ..decoders import DecodeError, KeyValueDecoder, flatten
 from ..monitor import Monitor, WriteError
+from ..signals import RESOLUTION, slot_at
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +150,7 @@ class WebDashboard:
         app[MONITOR_KEY] = monitor
         app.router.add_get("/", self._index)
         app.router.add_get("/ws", self._websocket)
+        app.router.add_get("/ws/signals", self._signals_websocket)
         app.router.add_post("/update", self._receive)
         app.router.add_get("/values", self._values)
         app.router.add_get("/_sightglass/theme.js", self._theme_script)
@@ -272,34 +280,37 @@ class WebDashboard:
         }
 
     async def _websocket(self, request: web.Request) -> web.WebSocketResponse:
-        monitor = request.app[MONITOR_KEY]
+        return await self._stream(request, self._send_values)
+
+    async def _signals_websocket(self, request: web.Request) -> web.WebSocketResponse:
+        return await self._stream(request, self._send_signals)
+
+    async def _stream(
+        self,
+        request: web.Request,
+        send: Callable[[web.WebSocketResponse, Monitor], Awaitable[None]],
+    ) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=10)
         await ws.prepare(request)
-        version, layout = monitor.version, monitor.layout_version
         self._sockets.add(ws)
+        sender = asyncio.create_task(send(ws, request.app[MONITOR_KEY]))
         try:
-            await ws.send_json(self._snapshot(monitor))
-            self._record_sent(id(ws), version)
-            pusher = asyncio.create_task(
-                self._push_changes(ws, monitor, version, layout)
-            )
-            try:
-                async for message in ws:  # the page sends nothing; wait for close
-                    if message.type == WSMsgType.ERROR:
-                        break
-            finally:
-                pusher.cancel()
+            async for message in ws:  # the page sends nothing; wait for close
+                if message.type == WSMsgType.ERROR:
+                    break
         finally:
+            sender.cancel()
             self._sockets.discard(ws)
             self._sent.pop(id(ws), None)
         return ws
 
-    async def _push_changes(
-        self, ws: web.WebSocketResponse, monitor: Monitor, version: int, layout: int
-    ) -> None:
+    async def _send_values(self, ws: web.WebSocketResponse, monitor: Monitor) -> None:
         # Each browser gets its own loop, so a slow one just receives fewer,
         # larger updates instead of holding up the others.
+        version, layout = monitor.version, monitor.layout_version
         try:
+            await ws.send_json(self._snapshot(monitor))
+            self._record_sent(id(ws), version)
             while not ws.closed:
                 latest = await monitor.wait_for_change(version)
                 if monitor.layout_version != layout:  # elements added: redraw
@@ -311,6 +322,38 @@ class WebDashboard:
                     )
                 version = latest
                 self._record_sent(id(ws), version)
+                await asyncio.sleep(1 / self.fps)
+        except ConnectionError:
+            pass
+
+    async def _send_signals(self, ws: web.WebSocketResponse, monitor: Monitor) -> None:
+        """The signals panel's feed: every signal with its last minute, then the
+        signals that changed, with their slots since the previous message. A
+        message goes out every slot even if nothing changed, so the page's
+        charts keep moving with the server's clock."""
+        version, now = monitor.version, monotonic()
+        try:
+            await ws.send_json({"type": "snapshot", **monitor.signals.snapshot(now)})
+            sent = slot_at(now)  # the newest slot the page has
+            while not ws.closed:
+                next_slot = (sent + 1) * RESOLUTION - monotonic()
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(
+                        monitor.wait_for_change(version), max(next_slot, 0) + 0.001
+                    )
+                now = monotonic()
+                changed = monitor.signals.changes(version, sent, now)
+                version, slot = monitor.version, slot_at(now)
+                if changed or slot != sent:
+                    await ws.send_json(
+                        {
+                            "type": "update",
+                            "slot": slot,
+                            "from": sent,
+                            "signals": changed,
+                        }
+                    )
+                    sent = slot
                 await asyncio.sleep(1 / self.fps)
         except ConnectionError:
             pass

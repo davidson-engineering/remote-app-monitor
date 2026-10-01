@@ -44,8 +44,9 @@
     main, #dashboard { display: grid; gap: 16px; }
     main { max-width: 720px; margin: 0 auto; }
 
-    header { display: flex; align-items: center; justify-content: space-between; }
-    h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    /* The switches drop to a line of their own when they don't fit beside the title. */
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    h1 { flex: 1 1 auto; margin: 0; font-size: 20px; font-weight: 600; }
 
     .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
     .status .led { width: 10px; height: 10px; box-shadow: none; }
@@ -99,7 +100,7 @@
       .row { grid-template-columns: 1fr; gap: 4px; }  /* label above value */
     }
 
-    .tools { display: flex; align-items: center; gap: 12px; }
+    .tools { display: flex; align-items: center; gap: 12px; margin-left: auto; }
     .switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: none;
               color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
     .switch:hover { color: var(--text); }
@@ -122,6 +123,7 @@
     html[data-theme="terminal"] .status { color: var(--crt-bg); font-size: 20px; text-transform: uppercase; }
     html[data-theme="terminal"] .status .led { border-radius: 0; background: none; outline: 1px solid var(--crt-bg); }
     html[data-theme="terminal"][data-connection="open"] .status .led { background: var(--crt-bg); }
+    html[data-theme="terminal"] .tools { gap: 8px; }
     html[data-theme="terminal"] .switch { border: 1px solid var(--crt-bg); border-radius: 0; color: var(--crt-bg);
                                           font-size: 20px; text-transform: uppercase; }
     html[data-theme="terminal"] .switch::before { content: "["; }
@@ -195,8 +197,9 @@
   <main>
     <header>
       <h1 id="title">Monitor</h1>
+      <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
       <div class="tools">
-        <div class="status"><span class="led"></span><span id="connection">Connecting</span></div>
+        <button type="button" class="switch" data-signals-open aria-haspopup="dialog" title="Every value sent, with its last minute (`)">Signals</button>
         <button type="button" class="switch" data-theme-switch>Terminal</button>
         <button type="button" class="switch" data-crt-switch>CRT</button>
       </div>

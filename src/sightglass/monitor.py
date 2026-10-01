@@ -22,6 +22,7 @@ from time import monotonic
 from typing import Any, Protocol, Self, TypeVar
 
 from .elements import JSON, Element, IndicatorLamp, TextElement
+from .signals import Signals
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,9 @@ class Monitor:
     thread. Every applied batch bumps :attr:`version`; outputs use
     :meth:`wait_for_change` and :meth:`changes_since` to redraw only when, and
     only what, something changed.
+
+    :attr:`signals` keeps every accepted value by the id it was sent to, as
+    sent, with its last minute: the dashboard's signals panel.
     """
 
     def __init__(self, *, strict: bool = False, max_elements: int = 500) -> None:
@@ -128,6 +132,7 @@ class Monitor:
         self.version = 0
         self.layout_version = 0
         self.rejected = 0
+        self.signals = Signals()
         self._elements: dict[str, Element] = {}
         self._versions: dict[str, int] = {}
         self._updated: dict[str, float] = {}  # id -> monotonic() of last update
@@ -324,15 +329,18 @@ class Monitor:
 
     def _apply_all(self, updates: Iterable[Update]) -> None:
         changed = []
+        accepted = []
         for mapping in updates:
             for key, value in mapping.items():
                 if element := self._apply(key, value):
                     changed.append(element.id)
+                    accepted.append((key, value))
         if changed:
             now = monotonic()
             for id in changed:
                 self._updated[id] = now
             self._mark_changed(changed)
+            self.signals.record(accepted, now, self.version)
 
     def _apply(self, key: str, value: Any) -> Element | None:
         """Update the element ``key`` addresses; return it, or None if rejected."""

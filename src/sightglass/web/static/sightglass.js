@@ -23,6 +23,11 @@
 // data-crt-switch the terminal theme's CRT effects; the choice is remembered in
 // this browser, and aria-pressed shows each switch's state.
 //
+// The signals panel, for checking what a feed sends: every value the dashboard
+// has accepted, by id, as sent, with a chart of its last minute. The ` key
+// opens and closes it on any page; so does clicking an element marked
+// data-signals-open. Its code (signals.js) loads the first time it opens.
+//
 // Object values are flattened, so {"machine": {"estop": true}} binds as
 // "machine.estop". State is exposed on <html>:
 //   data-connection  "connecting" | "open" | "closed"
@@ -224,6 +229,23 @@
       return;
     }
     showSwitches();
+  });
+
+  let signals = null; // the panel's module, once loaded
+  const signalsPanel = () => (signals ??= import("/_sightglass/signals.js"));
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-signals-open]")) return;
+    signalsPanel().then((panel) => panel.open());
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "`" || event.ctrlKey || event.metaKey || event.altKey) return;
+    // Typing a ` (in the page or in the panel's filter) is just typing.
+    const target = event.composedPath()[0];
+    if (target.isContentEditable || target.closest?.("input, textarea, select")) return;
+    event.preventDefault();
+    signalsPanel().then((panel) => panel.toggle());
   });
 
   root.dataset.connection = "connecting";
